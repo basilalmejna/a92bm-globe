@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A92BM Confirmed QSOs</title>
+<meta name="description" content="Interactive globe of A92BM's LoTW-confirmed amateur radio contacts from Bahrain (LL56HH).">
+<style>
+  :root { --navy:#000030; --panel:rgba(21,21,65,.82); --border:#31336e; --mint:#17f9da; --pink:#c0106f; --text:#e9eaf5; --muted:#a9abd0; }
+  html, body { margin:0; height:100%; background:var(--navy); color:var(--text); font-family:'Segoe UI',Arial,Helvetica,sans-serif; overflow:hidden; }
+  #globe { position:fixed; inset:0; }
+  .hud { position:fixed; left:16px; top:14px; right:16px; pointer-events:none; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start; justify-content:space-between; }
+  .card { pointer-events:auto; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px 16px; backdrop-filter:blur(6px); }
+  .eyebrow { font-size:11px; letter-spacing:4px; color:var(--mint); text-transform:uppercase; }
+  .title { font-size:22px; font-weight:800; letter-spacing:2px; color:#fff; margin-top:2px; }
+  .title span { background:linear-gradient(90deg,#33a0b8,#c0106f); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stats { display:flex; gap:18px; margin-top:8px; }
+  .stat b { display:block; font-size:22px; color:var(--mint); line-height:1.1; }
+  .stat small { font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+  .bands { display:flex; flex-wrap:wrap; gap:6px; max-width:420px; justify-content:flex-end; }
+  .bands button { font:inherit; font-size:12px; font-weight:bold; letter-spacing:1px; color:var(--text); background:var(--navy); border:1px solid var(--border); border-radius:999px; padding:6px 11px; cursor:pointer; }
+  .bands button:hover { border-color:var(--mint); }
+  .bands button[aria-pressed="true"] { border-color:var(--mint); color:var(--navy); background:var(--mint); }
+  .foot { position:fixed; left:16px; bottom:12px; right:16px; display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--muted); pointer-events:none; }
+  .foot a { color:var(--mint); text-decoration:none; pointer-events:auto; }
+  .tip { background:rgba(0,0,48,.92); border:1px solid var(--border); border-radius:10px; padding:8px 11px; font:13px 'Segoe UI',Arial,sans-serif; color:var(--text); min-width:150px; }
+  .tip .c { font-size:17px; font-weight:800; letter-spacing:2px; color:var(--mint); }
+  .tip .k { color:var(--muted); }
+  @media (max-width:600px) {
+    .title { font-size:17px; } .stat b { font-size:18px; } .stats { gap:12px; }
+    .bands { max-width:none; justify-content:flex-start; }
+    .foot { font-size:11px; flex-direction:column; gap:2px; }
+  }
+</style>
+</head>
+<body>
+<div id="globe" aria-label="3D globe of confirmed contacts"></div>
+
+<div class="hud">
+  <div class="card">
+    <div class="eyebrow">LoTW confirmed</div>
+    <div class="title"><span>A92BM</span> &middot; QSO Globe</div>
+    <div class="stats">
+      <div class="stat"><b id="sQsos">0</b><small>QSOs</small></div>
+      <div class="stat"><b id="sStations">0</b><small>Stations</small></div>
+      <div class="stat"><b id="sDxcc">0</b><small>DXCC</small></div>
+    </div>
+  </div>
+  <div class="card bands" id="bands" role="group" aria-label="Filter by band"></div>
+</div>
+
+<div class="foot">
+  <span>Drag to spin &middot; scroll or pinch to zoom &middot; click a station for its QRZ page</span>
+  <span>From LL56HH, Bahrain &middot; updated <span id="sUpd"></span> &middot; <a href="https://www.qrz.com/db/A92BM" target="_blank" rel="noopener">qrz.com/db/A92BM</a></span>
+</div>
+
+<script src="qsos.js"></script>
+<script src="globe.gl.min.js"></script>
+<script>
+(function () {
+  const HOME = window.A92BM_HOME, STATS = window.A92BM_STATS, ALL = window.A92BM_QSOS;
+  const fmt = n => n.toLocaleString('en-US');
+  document.getElementById('sUpd').textContent = STATS.updated;
+
+  const el = document.getElementById('globe');
+  const world = Globe()(el)
+    .globeImageUrl('earth-night.jpg')
+    .bumpImageUrl('earth-topology.png')
+    .backgroundImageUrl('night-sky.png')
+    .showAtmosphere(true).atmosphereColor('#3b7bff').atmosphereAltitude(0.2)
+    // arcs from Bahrain to every confirmed station
+    .arcStartLat(() => HOME.lat).arcStartLng(() => HOME.lng)
+    .arcEndLat(d => d.lat).arcEndLng(d => d.lng)
+    .arcColor(() => ['rgba(23,249,218,0.75)', 'rgba(192,16,111,0.85)'])
+    .arcStroke(0.3).arcAltitudeAutoScale(0.45)
+    .arcDashLength(0.5).arcDashGap(1.5)
+    .arcDashInitialGap(() => Math.random() * 3).arcDashAnimateTime(() => 2500 + Math.random() * 2500)
+    .arcsTransitionDuration(0)
+    // station dots
+    .pointLat(d => d.lat).pointLng(d => d.lng)
+    .pointColor(() => '#17f9da').pointAltitude(0.004).pointRadius(d => 0.18 + Math.min(d.n, 6) * 0.04)
+    .pointsMerge(false).pointsTransitionDuration(0)
+    .pointLabel(d => `<div class="tip"><div class="c">${d.c}</div>${d.co}<br>
+        <span class="k">QSOs</span> ${d.n} &nbsp;<span class="k">Bands</span> ${d.b.join(', ')}<br>
+        <span class="k">Mode</span> ${d.m.join(', ')} &nbsp;<span class="k">Last</span> ${d.d}</div>`)
+    .onPointClick(d => window.open('https://www.qrz.com/db/' + encodeURIComponent(d.c), '_blank', 'noopener'))
+    .onPointHover(d => { el.style.cursor = d ? 'pointer' : null; })
+    // pulsing home station
+    .ringsData([HOME]).ringLat(d => d.lat).ringLng(d => d.lng)
+    .ringColor(() => t => `rgba(192,16,111,${1 - t})`).ringMaxRadius(5).ringPropagationSpeed(2.5).ringRepeatPeriod(1100)
+    .labelsData([HOME]).labelLat(d => d.lat).labelLng(d => d.lng).labelText(d => d.call)
+    .labelColor(() => '#ff4fb0').labelSize(1.4).labelDotRadius(0.5).labelAltitude(0.01).labelResolution(3);
+
+  world.pointOfView({ lat: 30, lng: 40, altitude: 2.3 }, 0);
+  const ctl = world.controls();
+  ctl.autoRotate = true; ctl.autoRotateSpeed = 0.35; ctl.minDistance = 130; ctl.maxDistance = 700;
+  // pause spinning while the visitor interacts, resume after a few seconds
+  let idle; ctl.addEventListener('start', () => { ctl.autoRotate = false; clearTimeout(idle); });
+  ctl.addEventListener('end', () => { clearTimeout(idle); idle = setTimeout(() => ctl.autoRotate = true, 6000); });
+
+  function count(to, id) {
+    const node = document.getElementById(id), start = performance.now(), from = +node.dataset.v || 0;
+    node.dataset.v = to;
+    (function step(now) {
+      const p = Math.min(1, (now - start) / 900);
+      node.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(step);
+    })(start);
+  }
+
+  function show(band) {
+    const data = band ? ALL.filter(d => d.b.includes(band)) : ALL;
+    world.arcsData(data).pointsData(data);
+    const qsos = band ? STATS.bands[band] : STATS.qsos;
+    count(qsos, 'sQsos'); count(data.length, 'sStations');
+    count(band ? new Set(data.map(d => d.co)).size : STATS.dxcc, 'sDxcc');
+    document.querySelector('#sDxcc + small').textContent = band ? 'Countries' : 'DXCC';
+    for (const b of document.querySelectorAll('#bands button')) b.setAttribute('aria-pressed', String((b.dataset.band || '') === (band || '')));
+  }
+
+  const order = ['160m','80m','60m','40m','30m','20m','17m','15m','12m','10m','6m','2m','70cm','23cm','13cm','9cm'];
+  const bands = Object.keys(STATS.bands).filter(b => STATS.bands[b] >= 2).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const box = document.getElementById('bands');
+  for (const b of [''].concat(bands)) {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.dataset.band = b; btn.textContent = b || 'All bands';
+    btn.addEventListener('click', () => show(b || null));
+    box.appendChild(btn);
+  }
+
+  const fit = () => world.width(window.innerWidth).height(window.innerHeight);
+  window.addEventListener('resize', fit); fit();
+  show(null);
+})();
+</script>
+</body>
+</html>
