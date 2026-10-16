@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>A92BM Confirmed QSOs</title>
-<meta name="description" content="Interactive globe of A92BM's LoTW-confirmed amateur radio contacts from Bahrain (LL56HH).">
+<title>A92BM QSO Globe</title>
+<meta name="description" content="Interactive globe of A92BM's amateur radio contacts from Bahrain (LL56HH).">
 <style>
   :root { --navy:#000030; --panel:rgba(21,21,65,.82); --border:#31336e; --mint:#17f9da; --pink:#c0106f; --text:#e9eaf5; --muted:#a9abd0; }
   html, body { margin:0; height:100%; background:var(--navy); color:var(--text); font-family:'Segoe UI',Arial,Helvetica,sans-serif; overflow:hidden; }
@@ -38,7 +38,7 @@
 
 <div class="hud">
   <div class="card">
-    <div class="eyebrow">LoTW confirmed</div>
+    <div class="eyebrow">From my logbook</div>
     <div class="title"><span>A92BM</span> &middot; QSO Globe</div>
     <div class="stats">
       <div class="stat"><b id="sQsos">0</b><small>QSOs</small></div>
@@ -82,7 +82,7 @@
     .pointsMerge(false).pointsTransitionDuration(0)
     .pointLabel(d => `<div class="tip"><div class="c">${d.c}</div>${d.co}<br>
         <span class="k">QSOs</span> ${d.n} &nbsp;<span class="k">Bands</span> ${d.b.join(', ')}<br>
-        <span class="k">Mode</span> ${d.m.join(', ')} &nbsp;<span class="k">Last</span> ${d.d}</div>`)
+        <span class="k">Mode</span> ${d.m.join(', ')} &nbsp;<span class="k">Last</span> ${d.d}${d.q ? '<br><span style="color:#17f9da">&#10003; LoTW confirmed</span>' : ''}</div>`)
     .onPointClick(d => window.open('https://www.qrz.com/db/' + encodeURIComponent(d.c), '_blank', 'noopener'))
     .onPointHover(d => { el.style.cursor = d ? 'pointer' : null; })
     // pulsing home station
