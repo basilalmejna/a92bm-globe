@@ -21,9 +21,10 @@ import math
 import os
 import re
 import sys
+import time
 import urllib.request
 
-LAT, LNG = 26.312, 50.625          # Diyar Al Muharraq
+LAT, LNG = 26.30, 50.62            # Diyar Al Muharraq area (approximate, no home location)
 TZ = dt.timezone(dt.timedelta(hours=3), 'AST')   # Bahrain, no DST
 STATION = 'OBBI'
 UA = 'A92BM-weather-panel (https://basilalmejna.github.io/a92bm-globe/)'
@@ -33,14 +34,24 @@ SLOTS, STEP_H = 8, 3                # forecast strip: 8 slots, every 3 hours
 
 METAR_URL = f'https://aviationweather.gov/api/data/metar?ids={STATION}&format=json&hours=3'
 OM_URL = ('https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
-          '&hourly=temperature_2m,weather_code&daily=sunrise,sunset'
-          '&timezone=Asia%2FBahrain&forecast_days=3').format(LAT, LNG)
+          '&current=temperature_2m,relative_humidity_2m,dew_point_2m,pressure_msl,wind_speed_10m,'
+          'wind_direction_10m,wind_gusts_10m,weather_code,visibility'
+          '&hourly=temperature_2m,weather_code,precipitation,precipitation_probability&daily=sunrise,sunset'
+          '&timezone=Asia%2FBahrain&wind_speed_unit=kmh&forecast_days=3').format(LAT, LNG)
+AQ_URL = ('https://air-quality-api.open-meteo.com/v1/air-quality?latitude={}&longitude={}'
+          '&current=dust&timezone=Asia%2FBahrain').format(LAT, LNG)
 
 
-def fetch_json(url):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=25) as r:
-        return json.load(r)
+def fetch_json(url, tries=3):
+    for attempt in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': UA})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return json.load(r)
+        except Exception:
+            if attempt == tries - 1:
+                raise
+            time.sleep(10 * (attempt + 1))
 
 
 # ---------------------------------------------------------------- sun times
@@ -220,44 +231,43 @@ def text(x, y, s, size=13, fill='#e9eaf5', anchor='start', weight='normal', extr
             f'font-weight="{weight}"{extra}>{html.escape(str(s))}</text>')
 
 
-def render(metar, om, now):
+def render(metar, om, aq, now):
     sun = Sun(om)
     ic = Icons()
-    W, H = 640, 400
+    W, H = 640, 520
+    cur = (om or {}).get('current') or {}
     body = []
     body.append(f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>')
-    body.append(text(24, 32, 'WEATHER · DIYAR AL MUHARRAQ', 11, '#17f9da', extra=' letter-spacing="3.5"'))
+    body.append(text(24, 32, 'WEATHER · DIYAR AL MUHARRAQ AREA', 11, '#17f9da', extra=' letter-spacing="3.5"'))
 
-    # ---- now
+    # ---- now: airport observation first, model as labelled fallback
+    obs_parts = {}
     if metar:
         obs = dt.datetime.fromtimestamp(metar['obsTime'], dt.timezone.utc)
         day = sun.is_day(obs)
         icon, label = metar_icon(metar, day)
-        age = (now - obs).total_seconds() / 60
-        stale = age > METAR_STALE_MIN
+        stale = (now - obs).total_seconds() / 60 > METAR_STALE_MIN
         source = f'Observed {obs.astimezone(TZ):%H:%M} AST at Bahrain Intl ({STATION})'
         t, td = metar.get('temp'), metar.get('dewp')
         rh = rel_humidity(t, td)
         wspd, wgst = metar.get('wspd'), metar.get('wgst')
-        wind = 'Calm' if wspd == 0 else (
-            f"{compass(metar.get('wdir'))} {round(wspd * 1.852)} km/h" + (f', gusts {round(wgst * 1.852)}' if wgst else '')
-            if wspd is not None else '—')
-        vis = visibility_km(metar.get('visib'))
-    elif om:
-        day = sun.is_day(now)
-        idx = om['hourly']['time'].index(now.astimezone(TZ).strftime('%Y-%m-%dT%H:00'))
-        icon, label = wmo_icon(om['hourly']['weather_code'][idx], day)
-        t, rh, wind, vis, stale = om['hourly']['temperature_2m'][idx], None, '—', None, False
-        source = 'Model forecast (no airport observation available)'
+        wind = ('Calm' if wspd == 0 else f"{compass(metar.get('wdir'))} {round(wspd * 1.852)} km/h") if wspd is not None else '—'
+        obs_parts = {'dew': td, 'qnh': metar.get('altim'), 'gust': round(wgst * 1.852) if wgst else None,
+                     'vis': visibility_km(metar.get('visib'))}
+    elif cur:
+        day = bool(cur.get('is_day', sun.is_day(now)))
+        icon, label = wmo_icon(cur.get('weather_code'), sun.is_day(now))
+        t, rh, stale = cur.get('temperature_2m'), cur.get('relative_humidity_2m'), False
+        wind = f"{compass(cur.get('wind_direction_10m'))} {round(cur['wind_speed_10m'])} km/h" if cur.get('wind_speed_10m') is not None else '—'
+        source = f"Model estimate {dt.datetime.fromisoformat(cur['time']):%H:%M} AST (no airport observation)"
     else:
-        day, icon, label, t, rh, wind, vis, stale = sun.is_day(now), 'not-available', 'Unavailable', None, None, '—', None, False
+        icon, label, t, rh, wind, stale = 'not-available', 'Unavailable', None, None, '—', False
         source = 'No current weather data available'
 
     body.append(ic.use(icon, 18, 44, 132))
     body.append(text(160, 82, label, 26, '#ffffff', weight='800'))
     body.append(text(160, 128, f'{round(t)}°C' if t is not None else '— °C', 42, '#17f9da', weight='800'))
-    details = [f'Humidity {rh}%' if rh is not None else None, f'Wind {wind}', f'Visibility {vis}' if vis else None]
-    body.append(text(160, 154, '  ·  '.join(d for d in details if d), 13, '#e9eaf5'))
+    body.append(text(160, 154, '  ·  '.join(x for x in [f'Humidity {rh}%' if rh is not None else None, f'Wind {wind}'] if x), 13, '#e9eaf5'))
     body.append(text(160, 176, source, 11, '#a9abd0'))
     if stale:
         body.append('<rect x="520" y="62" width="96" height="24" rx="12" fill="#c0106f"/>')
@@ -266,37 +276,70 @@ def render(metar, om, now):
     body.append(ic.use('sunrise', 506, 110, 40) + text(546, 136, f'{rise:%H:%M}', 13, '#e9eaf5'))
     body.append(ic.use('sunset', 506, 146, 40) + text(546, 172, f'{sett:%H:%M}', 13, '#e9eaf5'))
 
-    # ---- forecast strip
-    body.append('<rect x="40" y="196" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
-    body.append(text(24, 222, f'NEXT {SLOTS * STEP_H} HOURS', 11, '#17f9da', extra=' letter-spacing="3.5"'))
+    # ---- detail tiles: observed where the airport reports it, model otherwise (labelled)
+    def pick(obs_val, model_val, fmt):
+        if obs_val is not None:
+            return fmt(obs_val), 'observed'
+        if model_val is not None:
+            return fmt(model_val), 'model'
+        return 'Unavailable', ''
+    hourly = (om or {}).get('hourly') or {}
+    times = hourly.get('time') or []
+    nxt = (now.astimezone(TZ) + dt.timedelta(hours=1)).strftime('%Y-%m-%dT%H:00')
+    i0 = times.index(nxt) if nxt in times else None
+    rain24 = prob24 = None
+    if i0 is not None:
+        win = range(i0, min(i0 + 24, len(times)))
+        rain24 = sum(hourly['precipitation'][j] or 0 for j in win)
+        prob24 = max((hourly['precipitation_probability'][j] or 0) for j in win)
+    dust = ((aq or {}).get('current') or {}).get('dust')
+    tiles = [
+        ('DEW POINT',) + pick(obs_parts.get('dew'), cur.get('dew_point_2m'), lambda v: f'{round(v)}°C'),
+        ('PRESSURE',) + pick(obs_parts.get('qnh'), cur.get('pressure_msl'), lambda v: f'{round(v)} hPa'),
+        ('GUSTS',) + pick(obs_parts.get('gust'), cur.get('wind_gusts_10m'), lambda v: f'{round(v)} km/h'),
+        ('VISIBILITY',) + pick(obs_parts.get('vis'), cur.get('visibility'),
+                               lambda v: v if isinstance(v, str) else ('10+ km' if v >= 10000 else f'{v / 1000:.1f} km')),
+        ('DUST',) + ((f'{round(dust)} µg/m³', 'CAMS model') if dust is not None else ('Unavailable', '')),
+        ('RAIN, NEXT 24 H',) + ((f'{rain24:.1f} mm', f'max chance {prob24}%') if rain24 is not None else ('Unavailable', '')),
+    ]
+    body.append('<rect x="40" y="194" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
+    tw = (W - 32) / len(tiles)
+    for k, (name, value, note) in enumerate(tiles):
+        cx = 16 + tw * k + tw / 2
+        body.append(text(cx, 222, name, 9, '#a9abd0', 'middle', extra=' letter-spacing="0.8"'))
+        body.append(text(cx, 246, value, 16, '#ffffff', 'middle', 'bold'))
+        body.append(text(cx, 264, note, 9.5, '#7f82b0', 'middle'))
+
+    # ---- forecast strip, each icon for its own valid time
+    body.append('<rect x="40" y="280" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
+    body.append(text(24, 306, f'NEXT {SLOTS * STEP_H} HOURS · rain is the total for each {STEP_H}-hour period', 11, '#17f9da',
+                     extra=' letter-spacing="1.5"'))
     cw = (W - 32) / SLOTS
     slots = []
-    if om:
-        times = om['hourly']['time']
-        start = (now.astimezone(TZ) + dt.timedelta(hours=1)).strftime('%Y-%m-%dT%H:00')
-        i = times.index(start) if start in times else None
-        if i is not None:
-            for k in range(SLOTS):
-                j = i + k * STEP_H
-                if j >= len(times):
-                    break
-                vt = dt.datetime.fromisoformat(times[j]).replace(tzinfo=TZ)
-                slots.append((vt, om['hourly']['weather_code'][j], om['hourly']['temperature_2m'][j]))
+    if i0 is not None:
+        for k in range(SLOTS):
+            j = i0 + k * STEP_H
+            if j >= len(times):
+                break
+            vt = dt.datetime.fromisoformat(times[j]).replace(tzinfo=TZ)
+            rain = sum(hourly['precipitation'][x] or 0 for x in range(j, min(j + STEP_H, len(times))))
+            slots.append((vt, hourly['weather_code'][j], hourly['temperature_2m'][j], rain))
     if slots:
-        for k, (vt, code, temp) in enumerate(slots):
+        for k, (vt, code, temp, rain) in enumerate(slots):
             cx = 16 + cw * k + cw / 2
             fi, fl = wmo_icon(code, sun.is_day(vt))
-            body.append(text(cx, 246, f'{vt:%H:%M}', 12, '#a9abd0', 'middle'))
-            body.append(ic.use(fi, cx - 30, 252, 60))
-            body.append(text(cx, 326, fl, 11, '#e9eaf5', 'middle'))
-            body.append(text(cx, 348, f'{round(temp)}°C' if temp is not None else '—', 15, '#ffffff', 'middle', 'bold'))
+            body.append(text(cx, 330, f'{vt:%H:%M}', 12, '#a9abd0', 'middle'))
+            body.append(ic.use(fi, cx - 30, 336, 60))
+            body.append(text(cx, 410, fl, 11, '#e9eaf5', 'middle'))
+            body.append(text(cx, 432, f'{round(temp)}°C' if temp is not None else '—', 15, '#ffffff', 'middle', 'bold'))
+            body.append(text(cx, 452, f'{rain:.1f} mm', 11, '#7fb8ff', 'middle'))
     else:
-        body.append(ic.use('not-available', W / 2 - 110, 240, 70))
-        body.append(text(W / 2 - 30, 284, 'Forecast unavailable', 16, '#e9eaf5'))
+        body.append(ic.use('not-available', W / 2 - 110, 330, 70))
+        body.append(text(W / 2 - 30, 374, 'Forecast unavailable', 16, '#e9eaf5'))
 
-    body.append(text(W / 2, H - 28, f'Updated {now.astimezone(TZ):%d %b %Y %H:%M} AST (Bahrain time)  ·  reload the page for the latest',
+    body.append(text(W / 2, H - 30, f'Updated {now.astimezone(TZ):%d %b %Y %H:%M} AST (Bahrain time)  ·  reload the page for the latest',
                      11, '#a9abd0', 'middle'))
-    body.append(text(W / 2, H - 12, 'Data: METAR OBBI via NOAA aviationweather.gov · Forecast: Open-Meteo.com (CC BY 4.0) · Icons: Meteocons (MIT)',
+    body.append(text(W / 2, H - 13, 'Observed: METAR OBBI (NOAA aviationweather.gov) · Forecast &amp; dust: Open-Meteo.com (CC BY 4.0) · Icons: Meteocons (MIT)'.replace('&amp;', '&'),
                      9.5, '#7f82b0', 'middle'))
 
     head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
@@ -319,7 +362,12 @@ def main():
         om = fetch_json(OM_URL)
     except Exception as e:
         print('Open-Meteo unavailable:', e)
-    open(out, 'w').write(render(metar, om, now))
+    aq = None
+    try:
+        aq = fetch_json(AQ_URL)
+    except Exception as e:
+        print('Open-Meteo air quality unavailable:', e)
+    open(out, 'w').write(render(metar, om, aq, now))
     print('wrote', out, '| now:', metar_icon(metar, Sun(om).is_day(now)) if metar else 'no METAR')
 
 

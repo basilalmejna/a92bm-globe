@@ -1,0 +1,74 @@
+{
+ "bbox": [
+  46.5,
+  55.5,
+  23.0,
+  29.5
+ ],
+ "width": 640,
+ "height": 515,
+ "kx": 71.11111111111111,
+ "ky": 79.28784967819131,
+ "cities": [
+  {
+   "name": "Dammam",
+   "lon": 50.098,
+   "lat": 26.43,
+   "rank": 7
+  },
+  {
+   "name": "Al Jubayl",
+   "lon": 49.646,
+   "lat": 27.005,
+   "rank": 7
+  },
+  {
+   "name": "Hofuf",
+   "lon": 49.586,
+   "lat": 25.349,
+   "rank": 6
+  },
+  {
+   "name": "Doha",
+   "lon": 51.533,
+   "lat": 25.287,
+   "rank": 4
+  },
+  {
+   "name": "Manama",
+   "lon": 50.583,
+   "lat": 26.236,
+   "rank": 4
+  },
+  {
+   "name": "Abu Dhabi",
+   "lon": 54.367,
+   "lat": 24.467,
+   "rank": 3
+  },
+  {
+   "name": "Dubai",
+   "lon": 55.287,
+   "lat": 25.215,
+   "rank": 1
+  },
+  {
+   "name": "Riyadh",
+   "lon": 46.72,
+   "lat": 24.634,
+   "rank": 0
+  },
+  {
+   "name": "Kuwait City",
+   "lon": 47.978,
+   "lat": 29.369,
+   "rank": 0
+  },
+  {
+   "name": "Bushehr",
+   "lon": 50.838,
+   "lat": 28.969,
+   "rank": 3
+  }
+ ]
+}
