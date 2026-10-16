@@ -7,7 +7,7 @@
 <text x="245" y="86" text-anchor="middle" font-size="11" letter-spacing="2.5" fill="#a9abd0">STATIONS</text>
 <text x="395" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">110</text>
 <text x="395" y="86" text-anchor="middle" font-size="11" letter-spacing="2.5" fill="#a9abd0">DXCC</text>
-<text x="545" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">1,092</text>
+<text x="545" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">1,097</text>
 <text x="545" y="86" text-anchor="middle" font-size="11" letter-spacing="2.5" fill="#a9abd0">LOTW CONFIRMED</text>
 <rect x="40" y="106" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>
 <text x="24" y="134" font-size="11" letter-spacing="4" fill="#17f9da">QSOS BY BAND</text>
@@ -52,5 +52,5 @@
 <rect x="569.8" y="277.0" width="33.2" height="3.0" fill="url(#g)"/>
 <text x="586.4" y="271.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#e9eaf5">3</text>
 <text x="586.4" y="298" text-anchor="middle" font-size="12" fill="#a9abd0">9cm</text>
-<text x="320" y="318" text-anchor="middle" font-size="11" fill="#a9abd0">Last QSO 2026-10-16  ·  updated 2026-10-16 11:45 UTC  ·  live from my WRL logbook</text>
+<text x="320" y="318" text-anchor="middle" font-size="11" fill="#a9abd0">Last QSO 2026-10-16  ·  updated 2026-10-16 15:41 UTC  ·  live from my WRL logbook</text>
 </svg>
