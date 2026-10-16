@@ -67,7 +67,7 @@ def gulf(path):
     W, H, kx, ky = meta['width'], meta['height'], meta['kx'], meta['ky']
     k = round(W / 640)                            # drawing scale (maps are rendered at 2x for wide screens)
     lons = np.arange(W0, E0 + 0.01, 1.0)
-    lats = np.arange(S0, N0 + 0.51, 1.0)
+    lats = np.arange(math.floor(S0), math.ceil(N0) + 0.01, 1.0)
     LA, LO = np.meshgrid(lats, lons, indexing='ij')
     url = ('https://api.open-meteo.com/v1/forecast?latitude=' + ','.join(f'{v:.2f}' for v in LA.ravel()) +
            '&longitude=' + ','.join(f'{v:.2f}' for v in LO.ravel()) +
@@ -195,16 +195,93 @@ def greyline(path, now=None):
     bx, by = xy(50.6, 26.2)                                   # Bahrain, country level
     dr.ellipse([bx - 4 * k, by - 4 * k, bx + 4 * k, by + 4 * k], fill=(23, 249, 218, 255), outline=(0, 0, 40, 255), width=k)
     dr.text((bx + 7 * k, by - 7 * k), 'Bahrain', font=font(11 * k, True), fill=(255, 255, 255, 255), stroke_width=2 * k, stroke_fill=(0, 0, 40, 255))
+    panel_svg(path, img, now, dec, slon)
+
+
+def sun_alt(when, lat=26.30, lon=50.62):
+    dec, slon = sun_position(when)
+    d, la = math.radians(dec), math.radians(lat)
+    return math.degrees(math.asin(math.sin(la) * math.sin(d) + math.cos(la) * math.cos(d) * math.cos(math.radians(lon - slon))))
+
+
+def crossings(day_local, level):
+    """Local times when the sun crosses `level` degrees (rising, setting) over the Bahrain area."""
+    start = dt.datetime(day_local.year, day_local.month, day_local.day, tzinfo=TZ)
+    prev, up, down = None, None, None
+    for m in range(0, 24 * 60 + 1, 2):
+        t = start + dt.timedelta(minutes=m)
+        a = sun_alt(t.astimezone(UTC)) - level
+        if prev is not None:
+            if prev < 0 <= a and up is None:
+                up = t
+            if prev >= 0 > a and down is None:
+                down = t
+        prev = a
+    return up, down
+
+
+def moon_phase(when):
+    age = ((when - dt.datetime(2000, 1, 6, 18, 14, tzinfo=UTC)).total_seconds() / 86400) % 29.530588853
+    illum = round(50 * (1 - math.cos(2 * math.pi * age / 29.530588853)))
+    names = [(1.85, 'moon-new', 'New moon'), (5.54, 'moon-waxing-crescent', 'Waxing crescent'),
+             (9.23, 'moon-first-quarter', 'First quarter'), (12.92, 'moon-waxing-gibbous', 'Waxing gibbous'),
+             (16.61, 'moon-full', 'Full moon'), (20.30, 'moon-waning-gibbous', 'Waning gibbous'),
+             (23.99, 'moon-last-quarter', 'Last quarter'), (27.68, 'moon-waning-crescent', 'Waning crescent'),
+             (29.6, 'moon-new', 'New moon')]
+    icon, name = next((i, n) for lim, i, n in names if age < lim)
+    return icon, name, illum
+
+
+def panel_svg(path, img, now, dec, slon):
+    """Grey-line panel with sun and moon details, same size as the other panels."""
+    import base64
+    import html
+    import io
+    sys.path.insert(0, HERE)
+    from weather import Icons, PANEL_W, PANEL_H
+    W, H = PANEL_W, PANEL_H
+    buf = io.BytesIO()
+    img.save(buf, 'JPEG', quality=84, optimize=True, progressive=True)
+    jpg = base64.b64encode(buf.getvalue()).decode()
+    ic = Icons()
     local = now.astimezone(TZ)
-    out = frame(img, 'GREY LINE · DAY & NIGHT',
-                f'{now:%d %b %Y %H:%M} UTC  ·  {local:%H:%M} Bahrain  ·  sun overhead at {abs(dec):.1f}°{"N" if dec >= 0 else "S"} {abs(slon):.1f}°{"E" if slon >= 0 else "W"}',
-                'Solar position calculated  ·  Earth images: NASA Blue Marble & Black Marble (public domain)', k)
-    out.save(path, quality=86, optimize=True, progressive=True) if path.endswith('.jpg') else out.save(path, optimize=True)
-    print('wrote', path, out.size)
+    t = lambda x, y, s, size=13, fill='#e9eaf5', anchor='middle', weight='normal', extra='': (
+        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{fill}" text-anchor="{anchor}" font-weight="{weight}"{extra}>{html.escape(str(s))}</text>')
+    rise, sett = crossings(local, -0.833)
+    dawn, _ = crossings(local, -6)
+    _, dusk = crossings(local, -6)
+    micon, mname, illum = moon_phase(now)
+    hm = lambda x: f'{x:%H:%M}' if x else '\u2014'
+    utc = lambda x: f'{x.astimezone(UTC):%H:%M} UTC' if x else ''
+    body = [f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>',
+            t(24, 30, 'GREY LINE \u00b7 DAY & NIGHT', 11, '#17f9da', 'start', extra=' letter-spacing="3.5"'),
+            t(24, 46, f'{now:%d %b %Y %H:%M} UTC \u00b7 {local:%H:%M} Bahrain \u00b7 sun overhead {abs(dec):.1f}\u00b0{"N" if dec >= 0 else "S"} {abs(slon):.1f}\u00b0{"E" if slon >= 0 else "W"}',
+              10.5, '#a9abd0', 'start'),
+            '<clipPath id="mapclip"><rect x="12" y="56" width="616" height="308" rx="10"/></clipPath>',
+            f'<image x="12" y="56" width="616" height="308" preserveAspectRatio="none" clip-path="url(#mapclip)" href="data:image/jpeg;base64,{jpg}"/>']
+    tiles = [('sunrise', 'SUNRISE', hm(rise) + ' AST', utc(rise)),
+             ('sunset', 'SUNSET', hm(sett) + ' AST', utc(sett)),
+             ('starry-night', 'GREY LINE AT BAHRAIN', f'{hm(dawn)}\u2013{hm(rise)}  \u00b7  {hm(sett)}\u2013{hm(dusk)}', 'dawn and dusk twilight, AST'),
+             (micon, 'MOON', mname, f'{illum}% illuminated')]
+    tw = (W - 24) / 4
+    for k, (icon, name, value, note) in enumerate(tiles):
+        x0 = 12 + tw * k
+        cx = x0 + tw / 2
+        body.append(f'<rect x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="124" rx="10" fill="#151541" stroke="#31336e"/>')
+        body.append(ic.use(icon, cx - 26, 378, 52))
+        body.append(t(cx, 444, name, 9, '#a9abd0', extra=' letter-spacing="1"'))
+        body.append(t(cx, 466, value, 15 if len(value) < 14 else 11.5, '#ffffff', weight='bold'))
+        body.append(t(cx, 486, note, 9.5, '#7f82b0'))
+    body.append(t(W / 2, H - 22, f'Calculated for the Diyar Al Muharraq area \u00b7 updated {local:%H:%M} AST \u00b7 reload for the latest', 10.5, '#a9abd0'))
+    body.append(t(W / 2, H - 8, 'Earth images: NASA Blue Marble & Black Marble (public domain) \u00b7 Icons: Meteocons (MIT)', 9.5, '#7f82b0'))
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="Segoe UI, Arial, Helvetica, sans-serif">'
+           f'<defs>{ic.defs()}</defs>' + '\n'.join(body) + '</svg>\n')
+    open(path, 'w').write(svg)
+    print('wrote', path, len(svg), 'bytes', mname, illum, hm(rise), hm(sett))
 
 
 def unavailable(path, title, why):
-    img = Image.new('RGB', (1280, 640), PANEL)
+    img = Image.new('RGB', (1280, 952), PANEL)
     d = ImageDraw.Draw(img)
     d.text((640, 300), 'Unavailable', font=font(44, True), fill=MUTED, anchor='mm')
     d.text((640, 364), why[:90], font=font(22), fill=MUTED, anchor='mm')
@@ -217,4 +294,6 @@ if __name__ == '__main__':
         gulf(out) if kind == 'gulf' else greyline(out)
     except Exception as e:
         print(kind, 'failed:', e)
-        unavailable(out, 'GULF · TEMPERATURE & WIND' if kind == 'gulf' else 'GREY LINE · DAY & NIGHT', str(e))
+        if out.endswith('.svg'):
+            sys.exit(1)          # build.sh writes the SVG placeholder
+        unavailable(out, 'GULF · TEMPERATURE & WIND', str(e))

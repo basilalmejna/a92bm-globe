@@ -31,6 +31,7 @@ UA = 'A92BM-weather-panel (https://basilalmejna.github.io/a92bm-globe/)'
 ICONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons')
 METAR_STALE_MIN = 90
 SLOTS, STEP_H = 8, 3                # forecast strip: 8 slots, every 3 hours
+PANEL_W, PANEL_H = 640, 540         # every panel on the QRZ card shares this size
 
 METAR_URL = f'https://aviationweather.gov/api/data/metar?ids={STATION}&format=json&hours=3'
 OM_URL = ('https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
@@ -234,7 +235,7 @@ def text(x, y, s, size=13, fill='#e9eaf5', anchor='start', weight='normal', extr
 def render(metar, om, aq, now):
     sun = Sun(om)
     ic = Icons()
-    W, H = 640, 520
+    W, H = PANEL_W, PANEL_H
     cur = (om or {}).get('current') or {}
     body = []
     body.append(f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>')
@@ -267,8 +268,7 @@ def render(metar, om, aq, now):
     body.append(ic.use(icon, 18, 44, 132))
     body.append(text(160, 82, label, 26, '#ffffff', weight='800'))
     body.append(text(160, 128, f'{round(t)}°C' if t is not None else '— °C', 42, '#17f9da', weight='800'))
-    body.append(text(160, 154, '  ·  '.join(x for x in [f'Humidity {rh}%' if rh is not None else None, f'Wind {wind}'] if x), 13, '#e9eaf5'))
-    body.append(text(160, 176, source, 11, '#a9abd0'))
+    body.append(text(160, 160, source, 11, '#a9abd0'))
     if stale:
         body.append('<rect x="520" y="62" width="96" height="24" rx="12" fill="#c0106f"/>')
         body.append(text(568, 79, 'STALE DATA', 11, '#ffffff', 'middle', 'bold', ' letter-spacing="1"'))
@@ -302,17 +302,23 @@ def render(metar, om, aq, now):
         ('DUST',) + ((f'{round(dust)} µg/m³', 'CAMS model') if dust is not None else ('Unavailable', '')),
         ('RAIN, NEXT 24 H',) + ((f'{rain24:.1f} mm', f'max chance {prob24}%') if rain24 is not None else ('Unavailable', '')),
     ]
-    body.append('<rect x="40" y="194" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
-    tw = (W - 32) / len(tiles)
+    tiles.insert(0, ('WIND', wind if wind != '\u2014' else 'Unavailable', 'observed' if metar else ('model' if cur else '')))
+    tiles.insert(0, ('HUMIDITY', f'{rh}%' if rh is not None else 'Unavailable', 'observed' if metar else ('model' if cur else '')))
+    tile_icons = {'HUMIDITY': 'humidity', 'WIND': 'wind', 'DEW POINT': 'thermometer-glass-celsius', 'PRESSURE': 'barometer',
+                  'GUSTS': 'windsock', 'VISIBILITY': 'horizon', 'DUST': 'dust', 'RAIN, NEXT 24 H': 'raindrops'}
+    body.append('<rect x="40" y="184" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
+    tw = (W - 32) / 4
     for k, (name, value, note) in enumerate(tiles):
-        cx = 16 + tw * k + tw / 2
-        body.append(text(cx, 222, name, 9, '#a9abd0', 'middle', extra=' letter-spacing="0.8"'))
-        body.append(text(cx, 246, value, 16, '#ffffff', 'middle', 'bold'))
-        body.append(text(cx, 264, note, 9.5, '#7f82b0', 'middle'))
+        x0, y0 = 16 + tw * (k % 4), 194 + 66 * (k // 4)
+        body.append(f'<rect x="{x0 + 3:.1f}" y="{y0}" width="{tw - 6:.1f}" height="60" rx="9" fill="#151541" stroke="#31336e"/>')
+        body.append(ic.use(tile_icons[name], x0 + 6, y0 + 8, 44))
+        body.append(text(x0 + 52, y0 + 19, name, 8.5, '#a9abd0', extra=' letter-spacing="0.8"'))
+        body.append(text(x0 + 52, y0 + 38, value, 14 if len(value) < 12 else 12, '#ffffff', weight='bold'))
+        body.append(text(x0 + 52, y0 + 52, note, 9, '#7f82b0'))
 
     # ---- forecast strip, each icon for its own valid time
-    body.append('<rect x="40" y="280" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
-    body.append(text(24, 306, f'NEXT {SLOTS * STEP_H} HOURS · rain is the total for each {STEP_H}-hour period', 11, '#17f9da',
+    body.append('<rect x="40" y="334" width="560" height="2" rx="1" fill="url(#line)" opacity="0.8"/>')
+    body.append(text(24, 356, f'NEXT {SLOTS * STEP_H} HOURS · rain is the total for each {STEP_H}-hour period', 11, '#17f9da',
                      extra=' letter-spacing="1.5"'))
     cw = (W - 32) / SLOTS
     slots = []
@@ -328,18 +334,18 @@ def render(metar, om, aq, now):
         for k, (vt, code, temp, rain) in enumerate(slots):
             cx = 16 + cw * k + cw / 2
             fi, fl = wmo_icon(code, sun.is_day(vt))
-            body.append(text(cx, 330, f'{vt:%H:%M}', 12, '#a9abd0', 'middle'))
-            body.append(ic.use(fi, cx - 30, 336, 60))
-            body.append(text(cx, 410, fl, 11, '#e9eaf5', 'middle'))
-            body.append(text(cx, 432, f'{round(temp)}°C' if temp is not None else '—', 15, '#ffffff', 'middle', 'bold'))
-            body.append(text(cx, 452, f'{rain:.1f} mm', 11, '#7fb8ff', 'middle'))
+            body.append(text(cx, 378, f'{vt:%H:%M}', 12, '#a9abd0', 'middle'))
+            body.append(ic.use(fi, cx - 28, 382, 56))
+            body.append(text(cx, 452, fl, 11, '#e9eaf5', 'middle'))
+            body.append(text(cx, 472, f'{round(temp)}°C' if temp is not None else '—', 15, '#ffffff', 'middle', 'bold'))
+            body.append(text(cx, 490, f'{rain:.1f} mm', 11, '#7fb8ff', 'middle'))
     else:
-        body.append(ic.use('not-available', W / 2 - 110, 330, 70))
-        body.append(text(W / 2 - 30, 374, 'Forecast unavailable', 16, '#e9eaf5'))
+        body.append(ic.use('not-available', W / 2 - 110, 384, 70))
+        body.append(text(W / 2 - 30, 426, 'Forecast unavailable', 16, '#e9eaf5'))
 
-    body.append(text(W / 2, H - 30, f'Updated {now.astimezone(TZ):%d %b %Y %H:%M} AST (Bahrain time)  ·  reload the page for the latest',
+    body.append(text(W / 2, H - 28, f'Updated {now.astimezone(TZ):%d %b %Y %H:%M} AST (Bahrain time)  ·  reload the page for the latest',
                      11, '#a9abd0', 'middle'))
-    body.append(text(W / 2, H - 13, 'Observed: METAR OBBI (NOAA aviationweather.gov) · Forecast &amp; dust: Open-Meteo.com (CC BY 4.0) · Icons: Meteocons (MIT)'.replace('&amp;', '&'),
+    body.append(text(W / 2, H - 12, 'Observed: METAR OBBI (NOAA aviationweather.gov) · Forecast &amp; dust: Open-Meteo.com (CC BY 4.0) · Icons: Meteocons (MIT)'.replace('&amp;', '&'),
                      9.5, '#7f82b0', 'middle'))
 
     head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '

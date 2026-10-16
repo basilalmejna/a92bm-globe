@@ -12,7 +12,11 @@ import json
 import re
 import sys
 import time
+import os
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from weather import Icons, PANEL_W, PANEL_H  # noqa: E402
 
 B = 'https://services.swpc.noaa.gov'
 UA = 'A92BM-space-weather-panel (https://basilalmejna.github.io/a92bm-globe/)'
@@ -118,44 +122,46 @@ def text(x, y, s, size=13, fill='#e9eaf5', anchor='middle', weight='normal', ext
 
 
 def render(d, now):
-    W, H = 640, 330
+    W, H = PANEL_W, PANEL_H
+    ic = Icons()
     out = [f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>',
            text(24, 32, 'SPACE WEATHER · HF PROPAGATION', 11, '#17f9da', 'start', extra=' letter-spacing="3.5"')]
 
-    def tile(col, row, name, item, fmt, max_age_h, note_fmt, status=None):
+    def tile(col, row, name, item, fmt, max_age_h, note_fmt, status=None, icon='star'):
         tw = (W - 32) / 4
         cx = 16 + tw * col + tw / 2
-        y0 = 52 + row * 118
-        out.append(f'<rect x="{cx - tw / 2 + 5:.1f}" y="{y0}" width="{tw - 10:.1f}" height="106" rx="10" fill="#151541" stroke="#31336e"/>')
-        out.append(text(cx, y0 + 22, name, 10, '#a9abd0', extra=' letter-spacing="1.5"'))
+        y0 = 50 + row * 222
+        out.append(f'<rect x="{cx - tw / 2 + 4:.1f}" y="{y0}" width="{tw - 8:.1f}" height="212" rx="10" fill="#151541" stroke="#31336e"/>')
+        out.append(ic.use(icon, cx - 34, y0 + 6, 68))
+        out.append(text(cx, y0 + 92, name, 10, '#a9abd0', extra=' letter-spacing="1.2"'))
         if not item:
-            out.append(text(cx, y0 + 58, 'Unavailable', 16, '#7f82b0', weight='bold'))
+            out.append(text(cx, y0 + 132, 'Unavailable', 16, '#7f82b0', weight='bold'))
             return
-        out.append(text(cx, y0 + 60, fmt(item), 26, '#17f9da', weight='800'))
+        out.append(text(cx, y0 + 134, fmt(item), 26, '#17f9da', weight='800'))
         note = note_fmt(item)
         if status:
             color, word = status(item)
-            out.append(f'<circle cx="{cx - 4 - len(word) * 3.2:.1f}" cy="{y0 + 77}" r="4" fill="{color}"/>')
-            out.append(text(cx + 6, y0 + 81, word, 11, '#e9eaf5', weight='bold'))
+            out.append(f'<circle cx="{cx - 4 - len(word) * 3.2:.1f}" cy="{y0 + 158}" r="4" fill="{color}"/>')
+            out.append(text(cx + 6, y0 + 162, word, 11, '#e9eaf5', weight='bold'))
         stale = (now - item['time']).total_seconds() / 3600 > max_age_h
-        out.append(text(cx, y0 + 97, ('STALE · ' if stale else '') + note, 9.5, '#ff4d6d' if stale else '#7f82b0'))
+        out.append(text(cx, y0 + 192, ('STALE \u00b7 ' if stale else '') + note, 9.5, '#ff4d6d' if stale else '#7f82b0'))
 
     hm = lambda t: f'{t:%H:%M} UTC'
     day = lambda t: f'{t:%d %b} UTC'
-    tile(0, 0, 'SOLAR FLUX (SFI)', d['sfi'], lambda i: i['value'], 30, lambda i: f"10.7 cm · {i['time']:%d %b %H:%M} UTC")
-    tile(1, 0, 'SUNSPOT NUMBER', d['ssn'], lambda i: i['value'], 54, lambda i: f"observed {day(i['time'])}")
+    tile(0, 0, 'SOLAR FLUX (SFI)', d['sfi'], lambda i: i['value'], 30, lambda i: f"10.7 cm · {i['time']:%d %b %H:%M} UTC", icon='clear-day')
+    tile(1, 0, 'SUNSPOT NUMBER', d['ssn'], lambda i: i['value'], 54, lambda i: f"observed {day(i['time'])}", icon='solar-eclipse')
     tile(2, 0, 'PLANETARY Kp', d['kp'], lambda i: f"{i['value']:.2f}".rstrip('0').rstrip('.'), 6,
-         lambda i: f"{i['time']:%H}–{(i['time'] + dt.timedelta(hours=3)):%H} UTC {i['time']:%d %b}", kp_level)
-    tile(3, 0, 'DAILY Ap', d['ap'], lambda i: i['value'], 54, lambda i: day(i['time']))
-    tile(0, 1, 'LATEST FLARE', d['flare'], lambda i: i['value'], 24, lambda i: f"peak {i['time']:%d %b %H:%M} UTC")
+         lambda i: f"{i['time']:%H}–{(i['time'] + dt.timedelta(hours=3)):%H} UTC {i['time']:%d %b}", kp_level, icon='compass')
+    tile(3, 0, 'DAILY Ap', d['ap'], lambda i: i['value'], 54, lambda i: day(i['time']), icon='compass')
+    tile(0, 1, 'LATEST FLARE', d['flare'], lambda i: i['value'], 24, lambda i: f"peak {i['time']:%d %b %H:%M} UTC", icon='lightning-bolt')
     tile(1, 1, 'SOLAR WIND', d['wind'], lambda i: f"{i['value']} km/s", 0.5, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'Normal') if i['value'] < 500 else (WARN, 'Elevated') if i['value'] < 700 else (SERIOUS, 'High'))
+         lambda i: (GOOD, 'Normal') if i['value'] < 500 else (WARN, 'Elevated') if i['value'] < 700 else (SERIOUS, 'High'), icon='wind')
     tile(2, 1, 'IMF Bz', d['bz'], lambda i: f"{i['value']:+.1f} nT", 0.5, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'North') if i['value'] >= 0 else (WARN, 'South') if i['value'] > -10 else (SERIOUS, 'Strong south'))
+         lambda i: (GOOD, 'North') if i['value'] >= 0 else (WARN, 'South') if i['value'] > -10 else (SERIOUS, 'Strong south'), icon='star')
     sc = d['scales']
     tile(3, 1, 'NOAA SCALES', sc,
          lambda i: f"R{i['R']['Scale']} S{i['S']['Scale']} G{i['G']['Scale']}", 3, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'No alerts') if all(i[k]['Scale'] in ('0', None) for k in 'RSG') else (SERIOUS, 'Storm alert'))
+         lambda i: (GOOD, 'No alerts') if all(i[k]['Scale'] in ('0', None) for k in 'RSG') else (SERIOUS, 'Storm alert'), icon='hurricane')
 
     local = now.astimezone(TZ)
     out.append(text(W / 2, H - 30, f'As of {now:%H:%M} UTC  ·  {local:%H:%M} Bahrain (UTC+3), {local:%a %d %b %Y}  ·  updated hourly, reload for the latest',
@@ -163,7 +169,7 @@ def render(d, now):
     out.append(text(W / 2, H - 13, 'Data: NOAA Space Weather Prediction Center (SWPC) · GOES X-ray · real-time solar wind (DSCOVR/ACE/IMAP)',
                     9.5, '#7f82b0'))
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
-            'font-family="Segoe UI, Arial, Helvetica, sans-serif">' + '\n'.join(out) + '</svg>\n')
+            'font-family="Segoe UI, Arial, Helvetica, sans-serif">' + f'<defs>{ic.defs()}</defs>' + '\n'.join(out) + '</svg>\n')
 
 
 def main():
