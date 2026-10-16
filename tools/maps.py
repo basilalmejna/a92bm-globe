@@ -35,15 +35,15 @@ def font(size, bold=False):
     return ImageFont.load_default(size)
 
 
-def frame(img, title, subtitle, footer):
-    """Wrap a map in the page's card style with a title and a footer line."""
+def frame(img, title, subtitle, footer, k=1):
+    """Wrap a map in the page's card style with a title and a footer line (k = pixel scale)."""
     W = img.width
-    out = Image.new('RGB', (W, img.height + 64), NAVY)
-    out.paste(img, (0, 44))
+    out = Image.new('RGB', (W, img.height + 64 * k), NAVY)
+    out.paste(img, (0, 44 * k))
     d = ImageDraw.Draw(out)
-    d.text((14, 8), title, font=font(13, True), fill=MINT)
-    d.text((14, 26), subtitle, font=font(11), fill=MUTED)
-    d.text((W // 2, img.height + 54), footer, font=font(10), fill=(127, 130, 176), anchor='mm')
+    d.text((14 * k, 8 * k), title, font=font(13 * k, True), fill=MINT)
+    d.text((14 * k, 26 * k), subtitle, font=font(11 * k), fill=MUTED)
+    d.text((W // 2, img.height + 54 * k), footer, font=font(10 * k), fill=(127, 130, 176), anchor='mm')
     return out
 
 
@@ -65,6 +65,7 @@ def gulf(path):
     meta = json.load(open(os.path.join(BASE, 'gulf.json')))
     W0, E0, S0, N0 = meta['bbox']
     W, H, kx, ky = meta['width'], meta['height'], meta['kx'], meta['ky']
+    k = round(W / 640)                            # drawing scale (maps are rendered at 2x for wide screens)
     lons = np.arange(W0, E0 + 0.01, 1.0)
     lats = np.arange(S0, N0 + 0.51, 1.0)
     LA, LO = np.meshgrid(lats, lons, indexing='ij')
@@ -111,39 +112,39 @@ def gulf(path):
     for a in range(LA.shape[0]):
         for b in range(LA.shape[1]):
             x, y = xy(LO[a, b], LA[a, b])
-            if not (8 < x < W - 8 and 8 < y < H - 8):
+            if not (8 * k < x < W - 8 * k and 8 * k < y < H - 8 * k):
                 continue
             to = math.radians(DIR[a, b] + 180)
-            L = 8 + min(SP[a, b], 50) * 0.6
+            L = (8 + min(SP[a, b], 50) * 0.6) * k
             dx, dy = math.sin(to) * L, -math.cos(to) * L
             x0, y0, x1, y1 = x - dx / 2, y - dy / 2, x + dx / 2, y + dy / 2
-            d.line([(x0, y0), (x1, y1)], fill=(0, 0, 40, 230), width=4)
-            d.line([(x0, y0), (x1, y1)], fill=(255, 255, 255, 255), width=2)
+            d.line([(x0, y0), (x1, y1)], fill=(0, 0, 40, 230), width=round(4 * k))
+            d.line([(x0, y0), (x1, y1)], fill=(255, 255, 255, 255), width=round(2 * k))
             for s in (-1, 1):
                 ang = to + math.pi + s * 0.5
-                d.line([(x1, y1), (x1 + math.sin(ang) * 6, y1 - math.cos(ang) * 6)], fill=(255, 255, 255, 255), width=2)
+                d.line([(x1, y1), (x1 + math.sin(ang) * 6 * k, y1 - math.cos(ang) * 6 * k)], fill=(255, 255, 255, 255), width=round(2 * k))
             if (a + b) % 2 == 0:
-                d.text((x + 6, y + 6), f'{round(SP[a, b])}', font=font(10), fill=(0, 0, 40, 255))
+                d.text((x + 6 * k, y + 6 * k), f'{round(SP[a, b])}', font=font(round(10 * k)), fill=(0, 0, 40, 255))
     for c in meta['cities']:
         x, y = xy(c['lon'], c['lat'])
-        d.ellipse([x - 2.5, y - 2.5, x + 2.5, y + 2.5], fill=(0, 0, 40, 255))
-        right = x > W - 90
-        d.text((x - 5 if right else x + 5, y - 6), c['name'], font=font(11, True), fill=(0, 0, 40, 255),
-               stroke_width=2, stroke_fill=(255, 255, 255, 200), anchor='ra' if right else 'la')
+        d.ellipse([x - 2.5 * k, y - 2.5 * k, x + 2.5 * k, y + 2.5 * k], fill=(0, 0, 40, 255))
+        right = x > W - 90 * k
+        d.text((x - 5 * k if right else x + 5 * k, y - 6 * k), c['name'], font=font(round(11 * k), True), fill=(0, 0, 40, 255),
+               stroke_width=round(2 * k), stroke_fill=(255, 255, 255, 200), anchor='ra' if right else 'la')
     # legend
-    lg_w = 260
-    lx, ly = W - lg_w - 12, H - 30
-    d.rounded_rectangle([lx - 8, ly - 18, lx + lg_w + 8, ly + 22], 8, fill=(0, 0, 48, 210))
+    lg_w = round(260 * k)
+    lx, ly = W - lg_w - 12 * k, H - 30 * k
+    d.rounded_rectangle([lx - 8 * k, ly - 18 * k, lx + lg_w + 8 * k, ly + 22 * k], 8 * k, fill=(0, 0, 48, 210))
     ramp = temp_rgb(np.linspace(15, 46, lg_w))
-    for k in range(lg_w):
-        d.line([(lx + k, ly), (lx + k, ly + 8)], fill=tuple(int(v) for v in ramp[k]))
+    for c in range(lg_w):
+        d.line([(lx + c, ly), (lx + c, ly + 8 * k)], fill=tuple(int(v) for v in ramp[c]))
     for tv in (15, 25, 35, 45):
         tx = lx + (tv - 15) / 31 * lg_w
-        d.text((tx, ly + 10), f'{tv}°', font=font(9), fill=TEXT, anchor='ma')
-    d.text((lx, ly - 15), '°C  ·  arrows: wind direction, numbers: km/h', font=font(9), fill=TEXT)
+        d.text((tx, ly + 10 * k), f'{tv}°', font=font(round(9 * k)), fill=TEXT, anchor='ma')
+    d.text((lx, ly - 15 * k), '°C  ·  arrows: wind direction, numbers: km/h', font=font(round(9 * k)), fill=TEXT)
     out = frame(img, 'GULF · TEMPERATURE & WIND',
                 f'Model analysis valid {valid:%d %b %H:%M} AST  ·  1° grid, interpolated  ·  updated hourly',
-                'Data: Open-Meteo.com (CC BY 4.0)  ·  Coastlines & borders: Natural Earth (public domain)')
+                'Data: Open-Meteo.com (CC BY 4.0)  ·  Coastlines & borders: Natural Earth (public domain)', k)
     out.save(path, optimize=True)
     print('wrote', path, out.size, f'T {T.min():.0f}-{T.max():.0f} C')
 
@@ -165,9 +166,9 @@ def sun_position(when):
 
 def greyline(path, now=None):
     now = now or dt.datetime.now(UTC)
-    W, H = 640, 320
-    day = np.asarray(Image.open(os.path.join(BASE, 'earth-day-1024.jpg')).convert('RGB').resize((W, H), Image.LANCZOS), float)
-    night = np.asarray(Image.open(os.path.join(BASE, 'earth-night-1024.jpg')).convert('RGB').resize((W, H), Image.LANCZOS), float)
+    W, H, k = 1280, 640, 2
+    day = np.asarray(Image.open(os.path.join(BASE, 'earth-day-2048.jpg')).convert('RGB').resize((W, H), Image.LANCZOS), float)
+    night = np.asarray(Image.open(os.path.join(BASE, 'earth-night-2048.jpg')).convert('RGB').resize((W, H), Image.LANCZOS), float)
     night = np.clip(night * 1.6 + 8, 0, 255)
     dec, slon = sun_position(now)
     lon = np.radians(-180 + (np.arange(W) + 0.5) * 360 / W)[None, :]
@@ -190,24 +191,24 @@ def greyline(path, now=None):
     def xy(lo, la):
         return (lo + 180) / 360 * W, (90 - la) / 180 * H
     sx, sy = xy(slon, dec)
-    dr.ellipse([sx - 7, sy - 7, sx + 7, sy + 7], fill=(255, 210, 60, 255), outline=(255, 255, 255, 255))
+    dr.ellipse([sx - 7 * k, sy - 7 * k, sx + 7 * k, sy + 7 * k], fill=(255, 210, 60, 255), outline=(255, 255, 255, 255), width=k)
     bx, by = xy(50.6, 26.2)                                   # Bahrain, country level
-    dr.ellipse([bx - 4, by - 4, bx + 4, by + 4], fill=(23, 249, 218, 255), outline=(0, 0, 40, 255))
-    dr.text((bx + 7, by - 7), 'Bahrain', font=font(11, True), fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 40, 255))
+    dr.ellipse([bx - 4 * k, by - 4 * k, bx + 4 * k, by + 4 * k], fill=(23, 249, 218, 255), outline=(0, 0, 40, 255), width=k)
+    dr.text((bx + 7 * k, by - 7 * k), 'Bahrain', font=font(11 * k, True), fill=(255, 255, 255, 255), stroke_width=2 * k, stroke_fill=(0, 0, 40, 255))
     local = now.astimezone(TZ)
     out = frame(img, 'GREY LINE · DAY & NIGHT',
                 f'{now:%d %b %Y %H:%M} UTC  ·  {local:%H:%M} Bahrain  ·  sun overhead at {abs(dec):.1f}°{"N" if dec >= 0 else "S"} {abs(slon):.1f}°{"E" if slon >= 0 else "W"}',
-                'Solar position calculated  ·  Earth images: NASA Blue Marble & Black Marble (public domain)')
-    out.save(path, optimize=True)
+                'Solar position calculated  ·  Earth images: NASA Blue Marble & Black Marble (public domain)', k)
+    out.save(path, quality=86, optimize=True, progressive=True) if path.endswith('.jpg') else out.save(path, optimize=True)
     print('wrote', path, out.size)
 
 
 def unavailable(path, title, why):
-    img = Image.new('RGB', (640, 320), PANEL)
+    img = Image.new('RGB', (1280, 640), PANEL)
     d = ImageDraw.Draw(img)
-    d.text((320, 150), 'Unavailable', font=font(22, True), fill=MUTED, anchor='mm')
-    d.text((320, 182), why[:90], font=font(11), fill=MUTED, anchor='mm')
-    frame(img, title, 'No data this hour', 'The map will return at the next successful update').save(path)
+    d.text((640, 300), 'Unavailable', font=font(44, True), fill=MUTED, anchor='mm')
+    d.text((640, 364), why[:90], font=font(22), fill=MUTED, anchor='mm')
+    frame(img, title, 'No data this hour', 'The map will return at the next successful update', 2).convert('RGB').save(path)
 
 
 if __name__ == '__main__':

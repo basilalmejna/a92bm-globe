@@ -8,5 +8,5 @@ placeholder() {  # $1 file  $2 title
 python3 tools/weather.py weather.svg           || placeholder weather.svg 'WEATHER'
 python3 tools/spaceweather.py spaceweather.svg || placeholder spaceweather.svg 'SPACE WEATHER'
 python3 tools/maps.py gulf gulfmap.png         || true
-python3 tools/maps.py greyline greyline.png    || true
-ls -la weather.svg spaceweather.svg gulfmap.png greyline.png
+python3 tools/maps.py greyline greyline.jpg    || true
+ls -la weather.svg spaceweather.svg gulfmap.png greyline.jpg
