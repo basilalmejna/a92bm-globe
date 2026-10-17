@@ -1,68 +1,86 @@
 {
  "bbox": [
-  46.5,
-  55.5,
-  23.2996,
-  29.300456043379157
+  45.6,
+  60.4,
+  20.0,
+  30.0
  ],
  "width": 1280,
  "height": 952,
- "kx": 142.22222222222223,
- "ky": 158.64403230441724,
+ "kx": 86.4864864864865,
+ "ky": 95.2,
  "cities": [
   {
-   "name": "Dammam",
-   "lon": 50.098,
-   "lat": 26.43,
-   "rank": 7
-  },
-  {
-   "name": "Al Jubayl",
-   "lon": 49.646,
-   "lat": 27.005,
-   "rank": 7
-  },
-  {
-   "name": "Hofuf",
-   "lon": 49.586,
-   "lat": 25.349,
-   "rank": 6
-  },
-  {
-   "name": "Doha",
-   "lon": 51.533,
-   "lat": 25.287,
-   "rank": 4
-  },
-  {
-   "name": "Manama",
-   "lon": 50.583,
-   "lat": 26.236,
-   "rank": 4
-  },
-  {
-   "name": "Abu Dhabi",
-   "lon": 54.367,
-   "lat": 24.467,
-   "rank": 3
-  },
-  {
-   "name": "Dubai",
-   "lon": 55.287,
-   "lat": 25.215,
-   "rank": 1
+   "name": "Kuwait City",
+   "lon": 47.98,
+   "lat": 29.37,
+   "side": "right"
   },
   {
    "name": "Riyadh",
    "lon": 46.72,
-   "lat": 24.634,
-   "rank": 0
+   "lat": 24.69,
+   "side": "right"
+  },
+  {
+   "name": "Hofuf",
+   "lon": 49.59,
+   "lat": 25.38,
+   "side": "left"
+  },
+  {
+   "name": "Manama",
+   "lon": 50.58,
+   "lat": 26.23,
+   "side": "right"
+  },
+  {
+   "name": "Doha",
+   "lon": 51.53,
+   "lat": 25.29,
+   "side": "right"
+  },
+  {
+   "name": "Abu Dhabi",
+   "lon": 54.37,
+   "lat": 24.47,
+   "side": "left"
+  },
+  {
+   "name": "Dubai",
+   "lon": 55.3,
+   "lat": 25.27,
+   "side": "right"
   },
   {
    "name": "Bushehr",
-   "lon": 50.838,
-   "lat": 28.969,
-   "rank": 3
+   "lon": 50.84,
+   "lat": 28.97,
+   "side": "right"
+  },
+  {
+   "name": "Bandar Abbas",
+   "lon": 56.27,
+   "lat": 27.18,
+   "side": "right"
+  },
+  {
+   "name": "Sohar",
+   "lon": 56.71,
+   "lat": 24.35,
+   "side": "right"
+  },
+  {
+   "name": "Muscat",
+   "lon": 58.41,
+   "lat": 23.59,
+   "side": "left"
+  },
+  {
+   "name": "Sur",
+   "lon": 59.53,
+   "lat": 22.57,
+   "side": "left"
   }
  ]
 }

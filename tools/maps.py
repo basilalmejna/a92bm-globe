@@ -48,7 +48,10 @@ def frame(img, title, subtitle, footer, k=1):
 
 
 # ------------------------------------------------------------------ Gulf map
-TEMP_STOPS = [(15, (43, 93, 170)), (22, (64, 170, 190)), (28, (225, 214, 160)), (34, (236, 140, 60)), (40, (200, 30, 90)), (46, (120, 0, 60))]
+# deep, page-matching ramp: cool blues -> teal -> green -> amber -> orange -> crimson -> wine
+TEMP_STOPS = [(10, (28, 36, 104)), (18, (34, 82, 158)), (23, (30, 128, 146)), (27, (52, 138, 96)), (31, (176, 146, 46)),
+              (35, (196, 96, 38)), (40, (170, 38, 58)), (46, (100, 18, 66))]
+T_MIN, T_MAX = TEMP_STOPS[0][0], TEMP_STOPS[-1][0]
 
 
 def temp_rgb(t):
@@ -66,7 +69,7 @@ def gulf(path):
     W0, E0, S0, N0 = meta['bbox']
     W, H, kx, ky = meta['width'], meta['height'], meta['kx'], meta['ky']
     k = round(W / 640)                            # drawing scale (maps are rendered at 2x for wide screens)
-    lons = np.arange(W0, E0 + 0.01, 1.0)
+    lons = np.arange(math.floor(W0), math.ceil(E0) + 0.01, 1.0)
     lats = np.arange(math.floor(S0), math.ceil(N0) + 0.01, 1.0)
     LA, LO = np.meshgrid(lats, lons, indexing='ij')
     url = ('https://api.open-meteo.com/v1/forecast?latitude=' + ','.join(f'{v:.2f}' for v in LA.ravel()) +
@@ -98,7 +101,7 @@ def gulf(path):
          T[i0][:, j0 + 1] * (1 - di) * dj + T[i0 + 1][:, j0 + 1] * di * dj)
     rgb = temp_rgb(f)
     land = np.asarray(Image.open(os.path.join(BASE, 'gulf-land.png')).convert('L'), float)[:H, :W] / 255
-    sea = rgb * 0.38 + np.array([14, 52, 120]) * 0.62    # water keeps a blue cast so land reads as land
+    sea = rgb * 0.62                                      # same colours over water, just darker, so land stands out
     img = Image.fromarray(np.uint8(rgb * land[..., None] + sea * (1 - land[..., None])), 'RGB')
     d = ImageDraw.Draw(img, 'RGBA')
     coast = Image.open(os.path.join(BASE, 'gulf-land.png')).convert('L').filter(ImageFilter.FIND_EDGES)
@@ -123,25 +126,32 @@ def gulf(path):
             for s in (-1, 1):
                 ang = to + math.pi + s * 0.5
                 d.line([(x1, y1), (x1 + math.sin(ang) * 6 * k, y1 - math.cos(ang) * 6 * k)], fill=(255, 255, 255, 255), width=round(2 * k))
-            if (a + b) % 2 == 0:
-                d.text((x + 6 * k, y + 6 * k), f'{round(SP[a, b])}', font=font(round(10 * k)), fill=(0, 0, 40, 255))
+    def temp_at(x, y):
+        return float(f[min(H - 1, max(0, int(y))), min(W - 1, max(0, int(x)))])
     for c in meta['cities']:
         x, y = xy(c['lon'], c['lat'])
-        d.ellipse([x - 2.5 * k, y - 2.5 * k, x + 2.5 * k, y + 2.5 * k], fill=(0, 0, 40, 255))
-        right = x > W - 90 * k
-        d.text((x - 5 * k if right else x + 5 * k, y - 6 * k), c['name'], font=font(round(11 * k), True), fill=(0, 0, 40, 255),
-               stroke_width=round(2 * k), stroke_fill=(255, 255, 255, 200), anchor='ra' if right else 'la')
+        if not (0 <= x < W and 0 <= y < H):
+            continue
+        t = temp_at(x, y)
+        label = f"{c['name']}  {round(t)}\u00b0"
+        fnt = font(round(11 * k), True)
+        right = c.get('side') == 'left' or x > W - 150 * k
+        tw = d.textlength(label, font=fnt)
+        bx0 = x - 7 * k - tw - 12 * k if right else x + 7 * k
+        d.rounded_rectangle([bx0, y - 11 * k, bx0 + tw + 12 * k, y + 11 * k], 8 * k, fill=(0, 0, 40, 200), outline=(255, 255, 255, 90))
+        d.text((bx0 + 6 * k, y), label, font=fnt, fill=(255, 255, 255, 255), anchor='lm')
+        d.ellipse([x - 3.5 * k, y - 3.5 * k, x + 3.5 * k, y + 3.5 * k], fill=(255, 255, 255, 255), outline=(0, 0, 40, 255))
     # legend
-    lg_w = round(260 * k)
+    lg_w = round(300 * k)
     lx, ly = W - lg_w - 12 * k, H - 30 * k
     d.rounded_rectangle([lx - 8 * k, ly - 18 * k, lx + lg_w + 8 * k, ly + 22 * k], 8 * k, fill=(0, 0, 48, 210))
-    ramp = temp_rgb(np.linspace(15, 46, lg_w))
+    ramp = temp_rgb(np.linspace(T_MIN, T_MAX, lg_w))
     for c in range(lg_w):
         d.line([(lx + c, ly), (lx + c, ly + 8 * k)], fill=tuple(int(v) for v in ramp[c]))
-    for tv in (15, 25, 35, 45):
-        tx = lx + (tv - 15) / 31 * lg_w
+    for tv in (10, 20, 30, 40):
+        tx = lx + (tv - T_MIN) / (T_MAX - T_MIN) * lg_w
         d.text((tx, ly + 10 * k), f'{tv}°', font=font(round(9 * k)), fill=TEXT, anchor='ma')
-    d.text((lx, ly - 15 * k), '°C  ·  arrows: wind direction, numbers: km/h', font=font(round(9 * k)), fill=TEXT)
+    d.text((lx, ly - 15 * k), '°C  ·  arrows: wind direction, longer = stronger', font=font(round(9 * k)), fill=TEXT)
     out = frame(img, 'GULF · TEMPERATURE & WIND',
                 f'Model analysis valid {valid:%d %b %H:%M} AST  ·  1° grid, interpolated  ·  updated hourly',
                 'Data: Open-Meteo.com (CC BY 4.0)  ·  Coastlines & borders: Natural Earth (public domain)', k)
