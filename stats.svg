@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="330" viewBox="0 0 640 330" font-family="Segoe UI, Arial, Helvetica, sans-serif">
 <defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#33a0b8"/><stop offset="1" stop-color="#17f9da"/></linearGradient><linearGradient id="line" x1="0" x2="1"><stop offset="0" stop-color="#33a0b8"/><stop offset="1" stop-color="#c0106f"/></linearGradient></defs>
 <rect x="0.5" y="0.5" width="639" height="329" rx="14" fill="#000030" stroke="#31336e"/>
-<text x="95" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">1,677</text>
+<text x="95" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">1,679</text>
 <text x="95" y="86" text-anchor="middle" font-size="11" letter-spacing="2.5" fill="#a9abd0">QSOS</text>
 <text x="245" y="62" text-anchor="middle" font-size="34" font-weight="800" fill="#17f9da">1,485</text>
 <text x="245" y="86" text-anchor="middle" font-size="11" letter-spacing="2.5" fill="#a9abd0">STATIONS</text>
@@ -40,9 +40,9 @@
 <rect x="392.2" y="276.0" width="33.2" height="4.0" fill="url(#g)"/>
 <text x="408.8" y="152.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#e9eaf5">744</text>
 <text x="408.8" y="298" text-anchor="middle" font-size="12" fill="#a9abd0">10m</text>
-<rect x="451.4" y="263.6" width="33.2" height="16.4" rx="4" fill="url(#g)"/>
+<rect x="451.4" y="263.3" width="33.2" height="16.7" rx="4" fill="url(#g)"/>
 <rect x="451.4" y="276.0" width="33.2" height="4.0" fill="url(#g)"/>
-<text x="468.0" y="257.6" text-anchor="middle" font-size="12" font-weight="bold" fill="#e9eaf5">100</text>
+<text x="468.0" y="257.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#e9eaf5">102</text>
 <text x="468.0" y="298" text-anchor="middle" font-size="12" fill="#a9abd0">2m</text>
 <rect x="510.6" y="277.0" width="33.2" height="3.0" rx="4" fill="url(#g)"/>
 <rect x="510.6" y="277.0" width="33.2" height="3.0" fill="url(#g)"/>
@@ -52,5 +52,5 @@
 <rect x="569.8" y="277.0" width="33.2" height="3.0" fill="url(#g)"/>
 <text x="586.4" y="271.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#e9eaf5">3</text>
 <text x="586.4" y="298" text-anchor="middle" font-size="12" fill="#a9abd0">9cm</text>
-<text x="320" y="318" text-anchor="middle" font-size="11" fill="#a9abd0">Last QSO 2026-10-17  ·  updated 2026-10-17 05:18 UTC  ·  live from my WRL logbook</text>
+<text x="320" y="318" text-anchor="middle" font-size="11" fill="#a9abd0">Last QSO 2026-10-17  ·  updated 2026-10-17 15:22 UTC  ·  live from my WRL logbook</text>
 </svg>
