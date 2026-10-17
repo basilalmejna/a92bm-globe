@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Render the space-weather / HF conditions panel (spaceweather.svg) from NOAA SWPC.
+"""Render the solar-terrestrial / HF propagation panel (spaceweather.svg).
 
-Every value carries its own observation time; values past their expected
-publishing interval are marked STALE, and missing values say Unavailable.
+Laid out like N0NBH's hamqsl.com solar banners, in the A92BM page style:
+the Sun in 304 A (SDO/NASA), the main indices, N0NBH's calculated HF band
+conditions (day/night) and VHF conditions. N0NBH's XML feed (hourly; credit
+required) is the main source; NOAA SWPC fills in any index it cannot give.
 
   spaceweather.py OUT.svg
 """
@@ -14,9 +16,12 @@ import sys
 import time
 import os
 import urllib.request
+import base64
+import io
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from weather import Icons, PANEL_W, PANEL_H  # noqa: E402
+from weather import PANEL_W, PANEL_H  # noqa: E402
 
 B = 'https://services.swpc.noaa.gov'
 UA = 'A92BM-space-weather-panel (https://basilalmejna.github.io/a92bm-globe/)'
@@ -101,19 +106,56 @@ def bz():
     return {'value': r['bz_gsm'], 'time': ts(r['time_tag'])}
 
 
+# ------------------------------------------------------------------ N0NBH + SDO
+N0NBH = 'https://www.hamqsl.com/solarxml.php'
+SDO_304 = 'https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0304.jpg'
+
+
+def fetch(url, tries=3):
+    for attempt in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': UA})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return r.read()
+        except Exception:
+            if attempt == tries - 1:
+                raise
+            time.sleep(10 * (attempt + 1))
+
+
+def n0nbh():
+    root = ET.fromstring(fetch(N0NBH)).find('solardata')
+    t = lambda tag: (root.findtext(tag) or '').strip()
+    d = {k: t(k) for k in ('solarflux', 'aindex', 'kindex', 'xray', 'sunspots', 'heliumline', 'protonflux',
+                           'electonflux', 'aurora', 'latdegree', 'solarwind', 'magneticfield', 'geomagfield',
+                           'signalnoise', 'muf')}
+    d['time'] = dt.datetime.strptime(t('updated'), '%d %b %Y %H%M GMT').replace(tzinfo=UTC)
+    d['hf'] = {(b.get('name'), b.get('time')): b.text.strip() for b in root.iter('band')}
+    d['vhf'] = {(p.get('name'), p.get('location')): p.text.strip() for p in root.iter('phenomenon')}
+    return d
+
+
+def sun_image():
+    from PIL import Image
+    im = Image.open(io.BytesIO(fetch(SDO_304))).convert('RGB')
+    w, h = im.size
+    c = int(min(w, h) * 0.86)  # the disc plus its limb; leaves out the caption text in the corners
+    im = im.crop(((w - c) // 2, (h - c) // 2, (w + c) // 2, (h + c) // 2)).resize((360, 360), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, 'JPEG', quality=82)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 # ------------------------------------------------------------------ render
 GOOD, WARN, SERIOUS, CRIT = '#2bd67b', '#f5c518', '#ff8a3d', '#ff4d6d'
+MUTED = '#7f82b0'
 
 
-def kp_level(item):
-    v = item["value"]
-    if v >= 7:
-        return CRIT, f'Storm G{min(5, int(v) - 4)}'
-    if v >= 5:
-        return SERIOUS, f'Storm G{int(v) - 4}'
-    if v >= 4:
-        return WARN, 'Active'
-    return GOOD, 'Quiet' if v < 3 else 'Unsettled'
+def num(s):
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
 
 
 def text(x, y, s, size=13, fill='#e9eaf5', anchor='middle', weight='normal', extra=''):
@@ -121,63 +163,170 @@ def text(x, y, s, size=13, fill='#e9eaf5', anchor='middle', weight='normal', ext
             f'font-weight="{weight}"{extra}>{html.escape(str(s))}</text>')
 
 
+def pill(cx, cy, w, word, color, size=11.5):
+    return (f'<rect x="{cx - w / 2:.1f}" y="{cy - 11}" width="{w}" height="22" rx="11" fill="{color}" fill-opacity="0.16" '
+            f'stroke="{color}" stroke-opacity="0.75"/>' + text(cx, cy + 4, word, size, color, weight='bold'))
+
+
+def status_sfi(v):
+    return (WARN, 'Low') if v < 90 else (GOOD, 'Good') if v < 150 else (GOOD, 'Excellent')
+
+
+def status_k(v):
+    return (GOOD, 'Quiet') if v < 3 else (WARN, 'Unsettled') if v < 4 else (SERIOUS, 'Active') if v < 5 else (CRIT, f'Storm G{min(5, int(v) - 4)}')
+
+
+def status_a(v):
+    return (GOOD, 'Quiet') if v < 8 else (GOOD, 'Unsettled') if v < 16 else (WARN, 'Active') if v < 30 else (SERIOUS, 'Storm')
+
+
+def status_xray(s):
+    c = (s or '?')[0].upper()
+    return {'A': (GOOD, 'Quiet'), 'B': (GOOD, 'Quiet'), 'C': (WARN, 'Minor'), 'M': (SERIOUS, 'Fade risk'),
+            'X': (CRIT, 'Blackout risk')}.get(c, (MUTED, '—'))
+
+
+def status_wind(v):
+    return (GOOD, 'Normal') if v < 500 else (WARN, 'Elevated') if v < 700 else (SERIOUS, 'High')
+
+
+def status_bz(v):
+    return (GOOD, 'North') if v >= 0 else (WARN, 'South') if v > -10 else (SERIOUS, 'Strong south')
+
+
+def cond_color(word):
+    w = word.lower()
+    return GOOD if w.startswith('good') else WARN if w.startswith('fair') else CRIT if w.startswith('poor') else MUTED
+
+
 def render(d, now):
     W, H = PANEL_W, PANEL_H
-    ic = Icons()
+    n, sw = d['n0nbh'] or {}, d['swpc']
     out = [f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>',
-           text(24, 32, 'SPACE WEATHER · HF PROPAGATION', 11, '#17f9da', 'start', extra=' letter-spacing="3.5"')]
+           text(24, 32, 'SOLAR-TERRESTRIAL DATA · HF PROPAGATION', 11, '#17f9da', 'start', extra=' letter-spacing="3.5"')]
+    if n:
+        stale = (now - n['time']).total_seconds() > 3 * 3600
+        out.append(text(W - 24, 32, ('STALE · ' if stale else '') + f"N0NBH {n['time']:%H:%M} UTC", 10,
+                        CRIT if stale else MUTED, 'end'))
 
-    def tile(col, row, name, item, fmt, max_age_h, note_fmt, status=None, icon='star'):
-        tw = (W - 32) / 4
-        cx = 16 + tw * col + tw / 2
-        y0 = 50 + row * 222
-        out.append(f'<rect x="{cx - tw / 2 + 4:.1f}" y="{y0}" width="{tw - 8:.1f}" height="212" rx="10" fill="#151541" stroke="#31336e"/>')
-        out.append(ic.use(icon, cx - 34, y0 + 6, 68))
-        out.append(text(cx, y0 + 92, name, 10, '#a9abd0', extra=' letter-spacing="1.2"'))
-        if not item:
-            out.append(text(cx, y0 + 132, 'Unavailable', 16, '#7f82b0', weight='bold'))
-            return
-        out.append(text(cx, y0 + 134, fmt(item), 26, '#17f9da', weight='800'))
-        note = note_fmt(item)
-        if status:
-            color, word = status(item)
-            out.append(f'<circle cx="{cx - 4 - len(word) * 3.2:.1f}" cy="{y0 + 158}" r="4" fill="{color}"/>')
-            out.append(text(cx + 6, y0 + 162, word, 11, '#e9eaf5', weight='bold'))
-        stale = (now - item['time']).total_seconds() / 3600 > max_age_h
-        out.append(text(cx, y0 + 192, ('STALE \u00b7 ' if stale else '') + note, 9.5, '#ff4d6d' if stale else '#7f82b0'))
+    # --- the Sun, 304 A
+    cx, cy, r = 112, 142, 84
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="{r + 9}" fill="url(#glow)"/>')
+    if d['sun']:
+        out.append(f'<clipPath id="disc"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath>'
+                   f'<image x="{cx - r}" y="{cy - r}" width="{2 * r}" height="{2 * r}" clip-path="url(#disc)" '
+                   f'href="data:image/jpeg;base64,{d["sun"]}"/>')
+    else:
+        out.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="url(#sunfill)"/>')
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#17f9da" stroke-opacity="0.55" stroke-width="1.5"/>')
+    out.append(text(cx, 244, 'THE SUN NOW · SDO 304 Å', 9, MUTED, extra=' letter-spacing="1.2"'))
 
-    hm = lambda t: f'{t:%H:%M} UTC'
-    day = lambda t: f'{t:%d %b} UTC'
-    tile(0, 0, 'SOLAR FLUX (SFI)', d['sfi'], lambda i: i['value'], 30, lambda i: f"10.7 cm · {i['time']:%d %b %H:%M} UTC", icon='clear-day')
-    tile(1, 0, 'SUNSPOT NUMBER', d['ssn'], lambda i: i['value'], 54, lambda i: f"observed {day(i['time'])}", icon='solar-eclipse')
-    tile(2, 0, 'PLANETARY Kp', d['kp'], lambda i: f"{i['value']:.2f}".rstrip('0').rstrip('.'), 6,
-         lambda i: f"{i['time']:%H}–{(i['time'] + dt.timedelta(hours=3)):%H} UTC {i['time']:%d %b}", kp_level, icon='compass')
-    tile(3, 0, 'DAILY Ap', d['ap'], lambda i: i['value'], 54, lambda i: day(i['time']), icon='compass')
-    tile(0, 1, 'LATEST FLARE', d['flare'], lambda i: i['value'], 24, lambda i: f"peak {i['time']:%d %b %H:%M} UTC", icon='lightning-bolt')
-    tile(1, 1, 'SOLAR WIND', d['wind'], lambda i: f"{i['value']} km/s", 0.5, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'Normal') if i['value'] < 500 else (WARN, 'Elevated') if i['value'] < 700 else (SERIOUS, 'High'), icon='wind')
-    tile(2, 1, 'IMF Bz', d['bz'], lambda i: f"{i['value']:+.1f} nT", 0.5, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'North') if i['value'] >= 0 else (WARN, 'South') if i['value'] > -10 else (SERIOUS, 'Strong south'), icon='star')
-    sc = d['scales']
-    tile(3, 1, 'NOAA SCALES', sc,
-         lambda i: f"R{i['R']['Scale']} S{i['S']['Scale']} G{i['G']['Scale']}", 3, lambda i: hm(i['time']),
-         lambda i: (GOOD, 'No alerts') if all(i[k]['Scale'] in ('0', None) for k in 'RSG') else (SERIOUS, 'Storm alert'), icon='hurricane')
+    # --- index tiles, 4 x 2
+    def val(key, swkey=None, cast=num):
+        v = cast(n.get(key)) if n.get(key) not in (None, '', 'NoRpt', 'No Report') else None
+        if v is None and swkey and sw.get(swkey):
+            v = sw[swkey]['value']
+        return v
 
+    sfi, ssn, a, k = val('solarflux', 'sfi'), val('sunspots', 'ssn'), val('aindex', 'ap'), val('kindex', 'kp')
+    xr = n.get('xray') or (sw.get('flare') or {}).get('now')
+    wind, bz = val('solarwind', 'wind'), val('magneticfield', 'bz')
+    sc = sw.get('scales')
+    tiles = [('SOLAR FLUX', sfi, lambda v: f'{v:.0f}', status_sfi),
+             ('SUNSPOTS', ssn, lambda v: f'{v:.0f}', lambda v: (GOOD, 'Active sun') if v >= 50 else (WARN, 'Quiet sun')),
+             ('A-INDEX', a, lambda v: f'{v:.0f}', status_a),
+             ('K-INDEX', k, lambda v: f'{v:.0f}' if v == int(v) else f'{v:.1f}', status_k),
+             ('X-RAY', xr, lambda v: v, status_xray),
+             ('SOLAR WIND', wind, lambda v: f'{v:.0f}', status_wind),
+             ('IMF Bz', bz, lambda v: f'{v:+.1f}', status_bz),
+             ('NOAA R · S · G', sc, lambda v: f"{v['R']['Scale']} · {v['S']['Scale']} · {v['G']['Scale']}",
+              lambda v: (GOOD, 'No alerts') if all(v[x]['Scale'] in ('0', None) for x in 'RSG') else (SERIOUS, 'Alert'))]
+    units = {'SOLAR WIND': 'km/s', 'IMF Bz': 'nT'}
+    x0, tw, th = 214, 102.5, 94
+    for i, (label, v, fmt, st) in enumerate(tiles):
+        tx, ty = x0 + (i % 4) * (tw + 4), 48 + (i // 4) * (th + 6)
+        mx = tx + tw / 2
+        out.append(f'<rect x="{tx:.1f}" y="{ty}" width="{tw}" height="{th}" rx="10" fill="#151541" stroke="#31336e"/>')
+        out.append(text(mx, ty + 20, label, 9, '#a9abd0', extra=' letter-spacing="1.2"'))
+        if v is None:
+            out.append(text(mx, ty + 54, '—', 22, MUTED, weight='bold'))
+            out.append(text(mx, ty + 78, 'Unavailable', 10, MUTED))
+            continue
+        out.append(text(mx, ty + 53, fmt(v), 24, '#17f9da', weight='800'))
+        if label in units:
+            out.append(text(mx, ty + 66, units[label], 8.5, MUTED))
+        color, word = st(v)
+        wy = ty + 82
+        out.append(f'<circle cx="{mx - 5 - len(word) * 2.9:.1f}" cy="{wy - 3.5}" r="3.5" fill="{color}"/>')
+        out.append(text(mx + 5, wy, word, 10, '#e9eaf5', weight='bold'))
+
+    # --- HF band conditions
+    out.append(f'<rect x="16" y="256" width="318" height="204" rx="12" fill="#151541" stroke="#31336e"/>')
+    out.append(text(32, 279, 'HF BAND CONDITIONS', 10, '#17f9da', 'start', extra=' letter-spacing="2.5"'))
+    out.append(text(216, 279, 'DAY', 9.5, '#a9abd0', extra=' letter-spacing="2"'))
+    out.append(text(290, 279, 'NIGHT', 9.5, '#a9abd0', extra=' letter-spacing="2"'))
+    hf = n.get('hf') or {}
+    for i, band in enumerate(('80m-40m', '30m-20m', '17m-15m', '12m-10m')):
+        y = 312 + i * 38
+        if i:
+            out.append(f'<line x1="30" y1="{y - 19}" x2="320" y2="{y - 19}" stroke="#31336e"/>')
+        out.append(text(32, y + 5, band.replace('-', ' – '), 15, '#ffffff', 'start', 'bold'))
+        for colx, tod in ((216, 'day'), (290, 'night')):
+            word = hf.get((band, tod), '—')
+            out.append(pill(colx, y, 64, word, cond_color(word)))
+
+    # --- VHF + geomagnetic
+    out.append(f'<rect x="342" y="256" width="282" height="204" rx="12" fill="#151541" stroke="#31336e"/>')
+    out.append(text(358, 279, 'VHF · GEOMAGNETIC', 10, '#17f9da', 'start', extra=' letter-spacing="2.5"'))
+    vhf = n.get('vhf') or {}
+    def vword(key):
+        w = vhf.get(key)
+        if not w:
+            return '—', MUTED
+        return ('Closed', MUTED) if 'closed' in w.lower() else (w.replace('MHz ES', ' MHz Es').replace('High LAT AUR', 'Aurora open'), GOOD)
+    geo = (n.get('geomagfield') or '—').title()
+    geo_c = GOOD if geo in ('Quiet', 'Vr Quiet', 'Very Quiet') else WARN if geo in ('Unsettled', 'Active') else MUTED if geo == '—' else SERIOUS
+    rows = [('Aurora', *vword(('vhf-aurora', 'northern_hemi'))),
+            ('6 m Es · Europe', *vword(('E-Skip', 'europe_6m'))),
+            ('4 m Es · Europe', *vword(('E-Skip', 'europe_4m'))),
+            ('2 m Es · Europe', *vword(('E-Skip', 'europe'))),
+            ('2 m Es · N. America', *vword(('E-Skip', 'north_america'))),
+            ('Geomagnetic field', geo, geo_c),
+            ('Signal noise', n.get('signalnoise') or '—', '#e9eaf5')]
+    for i, (label, word, color) in enumerate(rows):
+        y = 306 + i * 23.5
+        out.append(text(358, y, label, 11.5, '#e9eaf5', 'start'))
+        out.append(f'<circle cx="{604 - len(word) * 6.6 - 8:.1f}" cy="{y - 4}" r="3.5" fill="{color}"/>' if color != '#e9eaf5' else '')
+        out.append(text(608, y, word, 11.5, color if color != MUTED else '#a9abd0', 'end', 'bold'))
+
+    # --- more indices, time, credits
+    extra = []
+    for label, key, unit in (('304 Å', 'heliumline', ''), ('Proton flux', 'protonflux', ''), ('Electron flux', 'electonflux', ''),
+                             ('Aurora', 'aurora', ''), ('Aurora lat', 'latdegree', '°'), ('MUF', 'muf', ' MHz')):
+        v = n.get(key)
+        if v and v not in ('NoRpt', 'No Report'):
+            extra.append(f'{label} {v}{unit}')
+    if extra:
+        out.append(text(W / 2, 484, '  ·  '.join(extra), 10.5, '#a9abd0'))
     local = now.astimezone(TZ)
-    out.append(text(W / 2, H - 30, f'As of {now:%H:%M} UTC  ·  {local:%H:%M} Bahrain (UTC+3), {local:%a %d %b %Y}  ·  updated hourly, reload for the latest',
-                    11, '#a9abd0'))
-    out.append(text(W / 2, H - 13, 'Data: NOAA Space Weather Prediction Center (SWPC) · GOES X-ray · real-time solar wind (DSCOVR/ACE/IMAP)',
-                    9.5, '#7f82b0'))
+    out.append(text(W / 2, H - 30, f'As of {now:%H:%M} UTC  ·  {local:%H:%M} Bahrain (UTC+3), {local:%a %d %b %Y}  ·  updated hourly',
+                    10.5, '#a9abd0'))
+    out.append(text(W / 2, H - 13, 'Solar data & band conditions: N0NBH, hamqsl.com · NOAA SWPC · Sun image: SDO/NASA',
+                    9.5, MUTED))
+    defs = ('<radialGradient id="glow"><stop offset="0.82" stop-color="#ff7a2f" stop-opacity="0.45"/>'
+            '<stop offset="1" stop-color="#ff7a2f" stop-opacity="0"/></radialGradient>'
+            '<radialGradient id="sunfill"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#c0391b"/></radialGradient>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
-            'font-family="Segoe UI, Arial, Helvetica, sans-serif">' + f'<defs>{ic.defs()}</defs>' + '\n'.join(out) + '</svg>\n')
+            'font-family="Segoe UI, Arial, Helvetica, sans-serif">' + f'<defs>{defs}</defs>' + '\n'.join(out) + '</svg>\n')
 
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else 'spaceweather.svg'
-    d = {'sfi': safe(sfi), 'ssn': safe(ssn), 'kp': safe(kp), 'ap': safe(ap), 'flare': safe(flare),
-         'scales': safe(scales), 'wind': safe(solar_wind), 'bz': safe(bz)}
+    d = {'n0nbh': safe(n0nbh), 'sun': safe(sun_image),
+         'swpc': {k: safe(f) for k, f in (('sfi', sfi), ('ssn', ssn), ('kp', kp), ('ap', ap), ('flare', flare),
+                                          ('scales', scales), ('wind', solar_wind), ('bz', bz))}}
     open(out, 'w').write(render(d, dt.datetime.now(UTC)))
-    print('wrote', out, {k: (v or {}).get('value') for k, v in d.items()})
+    print('wrote', out, 'N0NBH' if d['n0nbh'] else 'no N0NBH', 'sun' if d['sun'] else 'no sun image')
 
 
 if __name__ == '__main__':
