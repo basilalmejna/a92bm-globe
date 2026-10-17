@@ -123,8 +123,16 @@ def fetch(url, tries=3):
             time.sleep(10 * (attempt + 1))
 
 
+N0NBH_RELAY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'n0nbh.xml')
+
+
 def n0nbh():
-    root = ET.fromstring(fetch(N0NBH)).find('solardata')
+    try:
+        raw = fetch(N0NBH, tries=1)
+    except Exception as e:  # hamqsl.com refuses GitHub's servers; Basil's PC relays the XML hourly
+        print('N0NBH direct fetch failed, using the relayed copy:', e)
+        raw = open(N0NBH_RELAY, 'rb').read()
+    root = ET.fromstring(raw).find('solardata')
     t = lambda tag: (root.findtext(tag) or '').strip()
     d = {k: t(k) for k in ('solarflux', 'aindex', 'kindex', 'xray', 'sunspots', 'heliumline', 'protonflux',
                            'electonflux', 'aurora', 'latdegree', 'solarwind', 'magneticfield', 'geomagfield',
