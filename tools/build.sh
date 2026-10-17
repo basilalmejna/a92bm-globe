@@ -9,5 +9,6 @@ python3 tools/weather.py weather.svg           || placeholder weather.svg 'WEATH
 python3 tools/spaceweather.py solar.svg       || placeholder solar.svg 'SOLAR-TERRESTRIAL DATA'
 cp solar.svg spaceweather.svg                   # old name, for any page that still uses it
 python3 tools/maps.py gulf gulfmap.png         || true
-python3 tools/maps.py greyline greyline.svg    || placeholder greyline.svg 'GREY LINE'
-ls -la weather.svg solar.svg spaceweather.svg gulfmap.png greyline.svg
+python3 tools/maps.py greyline daynight.svg   || placeholder daynight.svg 'GREY LINE'
+cp daynight.svg greyline.svg                   # old name, for any page that still uses it
+ls -la weather.svg solar.svg spaceweather.svg gulfmap.png daynight.svg greyline.svg

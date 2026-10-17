@@ -230,6 +230,98 @@ def crossings(day_local, level):
     return up, down
 
 
+# ------------------------------------------------------------------ tile pictures
+def _vgrad(w, h, stops):
+    """Vertical gradient; stops = [(0..1, (r, g, b)), ...]."""
+    y = np.linspace(0, 1, h)[:, None]
+    out = np.zeros((h, 1, 3))
+    for (p0, c0), (p1, c1) in zip(stops, stops[1:]):
+        m = (y >= p0) & (y <= p1)
+        f = np.clip((y - p0) / max(p1 - p0, 1e-6), 0, 1)
+        out = np.where(m[..., None], np.array(c0) + (np.array(c1) - np.array(c0)) * f[..., None], out)
+    return np.repeat(out, w, axis=1)
+
+
+def _stars(rgb, n, seed, top=0.0, bottom=1.0):
+    rng = np.random.default_rng(seed)
+    h, w, _ = rgb.shape
+    for _ in range(n):
+        x, y = rng.integers(0, w), rng.integers(int(h * top), int(h * bottom))
+        rgb[y, x] = np.maximum(rgb[y, x], rng.integers(150, 255))
+    return rgb
+
+
+def sky_scene(kind, w=304, h=124):
+    """A painted horizon over the Gulf: 'sunrise', 'sunset' or 'twilight' (the grey line)."""
+    hz = int(h * 0.66)
+    sky_stops = {
+        'sunrise': [(0, (24, 38, 104)), (0.45, (120, 90, 160)), (0.78, (240, 128, 130)), (1, (255, 205, 120))],
+        'sunset': [(0, (36, 20, 72)), (0.42, (130, 40, 90)), (0.75, (226, 82, 50)), (1, (255, 168, 64))],
+        'twilight': [(0, (4, 8, 40)), (0.55, (24, 40, 110)), (0.86, (70, 80, 150)), (1, (232, 140, 80))],
+    }[kind]
+    sea_top = {'sunrise': (70, 70, 120), 'sunset': (70, 30, 50), 'twilight': (20, 26, 70)}[kind]
+    sky = _vgrad(w, hz, sky_stops)
+    sea = _vgrad(w, h - hz, [(0, sea_top), (1, (6, 10, 34))])
+    rgb = np.concatenate([sky, sea], 0)
+    yy, xx = np.mgrid[0:h, 0:w]
+    if kind == 'twilight':
+        rgb = _stars(rgb, 60, 7, 0, 0.5)
+    else:
+        sx, r = w * (0.5 if kind == 'sunrise' else 0.5), h * 0.13
+        sun_col = np.array((255, 236, 170) if kind == 'sunrise' else (255, 196, 110))
+        d = np.hypot(xx - sx, yy - hz)
+        glow = np.exp(-(d / (h * 0.55)) ** 2)[..., None] * (yy < hz)[..., None]
+        rgb = rgb * (1 - 0.55 * glow) + sun_col * 0.55 * glow
+        disc = (d < r) & (yy < hz)
+        rgb[disc] = sun_col
+        # glitter path on the water
+        rng = np.random.default_rng(3 if kind == 'sunrise' else 5)
+        for y in range(hz + 1, h, 2):
+            depth = (y - hz) / (h - hz)
+            half = r * (0.6 + 2.4 * depth)
+            for _ in range(3):
+                c = sx + rng.normal(0, half * 0.5)
+                ln = rng.uniform(2, 6 + 10 * depth)
+                x0, x1 = int(max(0, c - ln)), int(min(w, c + ln))
+                a = 0.75 * (1 - 0.6 * depth)
+                rgb[y, x0:x1] = rgb[y, x0:x1] * (1 - a) + sun_col * a
+    # gentle wave lines
+    for y in range(hz + 3, h, 4):
+        rgb[y] = rgb[y] * 0.9
+    rgb[hz - 1:hz + 1] = rgb[hz - 1:hz + 1] * 0.85 + 30
+    img = Image.fromarray(np.uint8(np.clip(rgb, 0, 255)), 'RGB')
+    return img.filter(ImageFilter.GaussianBlur(0.7))
+
+
+def moon_scene(age_days, w=304, h=124):
+    """The real Moon (photo) shaded to today's phase, on a night sky."""
+    rgb = _stars(_vgrad(w, h, [(0, (2, 4, 26)), (1, (12, 20, 70))]), 70, 11)
+    R = int(h * 0.40)
+    tex = np.asarray(Image.open(os.path.join(BASE, 'moon-full.jpg')).convert('RGB').resize((2 * R, 2 * R), Image.LANCZOS), float)
+    y, x = np.mgrid[-R:R, -R:R] + 0.5
+    x, y = x / R, y / R
+    inside = x * x + y * y <= 1
+    z = np.sqrt(np.clip(1 - x * x - y * y, 0, 1))
+    th = 2 * math.pi * age_days / 29.530588853           # 0 new, pi full; waxing lit on the right (northern sky)
+    lit = x * math.sin(th) - z * math.cos(th)
+    shade = np.clip(lit * 6 + 0.5, 0, 1)                  # soft terminator
+    shade = 0.035 + 0.965 * shade                         # faint earthshine on the dark side
+    moon = tex * shade[..., None]
+    cx, cy = w // 2, h // 2
+    patch = rgb[cy - R:cy + R, cx - R:cx + R]
+    edge = np.clip((1 - np.sqrt(x * x + y * y)) * R, 0, 1)[..., None]  # anti-aliased rim
+    patch[:] = patch * (1 - edge) + moon * edge
+    return Image.fromarray(np.uint8(np.clip(rgb, 0, 255)), 'RGB')
+
+
+def jpeg_b64(img, q=86):
+    import base64
+    import io
+    buf = io.BytesIO()
+    img.save(buf, 'JPEG', quality=q, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 def moon_phase(when):
     age = ((when - dt.datetime(2000, 1, 6, 18, 14, tzinfo=UTC)).total_seconds() / 86400) % 29.530588853
     illum = round(50 * (1 - math.cos(2 * math.pi * age / 29.530588853)))
@@ -239,7 +331,11 @@ def moon_phase(when):
              (23.99, 'moon-last-quarter', 'Last quarter'), (27.68, 'moon-waning-crescent', 'Waning crescent'),
              (29.6, 'moon-new', 'New moon')]
     icon, name = next((i, n) for lim, i, n in names if age < lim)
-    return icon, name, illum
+    waxing = age < 29.530588853 / 2           # name by how much is lit, so the words match the picture
+    name = ('New moon' if illum < 3 else 'Full moon' if illum > 97 else
+            ('First quarter' if waxing else 'Last quarter') if 47 <= illum <= 53 else
+            ('Waxing ' if waxing else 'Waning ') + ('crescent' if illum < 47 else 'gibbous'))
+    return icon, name, illum, age
 
 
 def panel_svg(path, img, now, dec, slon):
@@ -248,19 +344,18 @@ def panel_svg(path, img, now, dec, slon):
     import html
     import io
     sys.path.insert(0, HERE)
-    from weather import Icons, PANEL_W, PANEL_H
+    from weather import PANEL_W, PANEL_H
     W, H = PANEL_W, PANEL_H
     buf = io.BytesIO()
     img.save(buf, 'JPEG', quality=84, optimize=True, progressive=True)
     jpg = base64.b64encode(buf.getvalue()).decode()
-    ic = Icons()
     local = now.astimezone(TZ)
     t = lambda x, y, s, size=13, fill='#e9eaf5', anchor='middle', weight='normal', extra='': (
         f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{fill}" text-anchor="{anchor}" font-weight="{weight}"{extra}>{html.escape(str(s))}</text>')
     rise, sett = crossings(local, -0.833)
     dawn, _ = crossings(local, -6)
     _, dusk = crossings(local, -6)
-    micon, mname, illum = moon_phase(now)
+    micon, mname, illum, age = moon_phase(now)
     hm = lambda x: f'{x:%H:%M}' if x else '\u2014'
     utc = lambda x: f'{x.astimezone(UTC):%H:%M} UTC' if x else ''
     body = [f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="#000030" stroke="#31336e"/>',
@@ -269,23 +364,26 @@ def panel_svg(path, img, now, dec, slon):
               10.5, '#a9abd0', 'start'),
             '<clipPath id="mapclip"><rect x="12" y="56" width="616" height="308" rx="10"/></clipPath>',
             f'<image x="12" y="56" width="616" height="308" preserveAspectRatio="none" clip-path="url(#mapclip)" href="data:image/jpeg;base64,{jpg}"/>']
-    tiles = [('sunrise', 'SUNRISE', hm(rise) + ' AST', utc(rise)),
-             ('sunset', 'SUNSET', hm(sett) + ' AST', utc(sett)),
-             ('starry-night', 'GREY LINE AT BAHRAIN', f'{hm(dawn)}\u2013{hm(rise)}  \u00b7  {hm(sett)}\u2013{hm(dusk)}', 'dawn and dusk twilight, AST'),
-             (micon, 'MOON', mname, f'{illum}% illuminated')]
+    tiles = [(sky_scene('sunrise'), 'SUNRISE', hm(rise) + ' AST', utc(rise)),
+             (sky_scene('sunset'), 'SUNSET', hm(sett) + ' AST', utc(sett)),
+             (sky_scene('twilight'), 'GREY LINE AT BAHRAIN', f'{hm(dawn)}\u2013{hm(rise)}  \u00b7  {hm(sett)}\u2013{hm(dusk)}', 'dawn and dusk twilight, AST'),
+             (moon_scene(age), 'MOON', mname, f'{illum}% illuminated')]
     tw = (W - 24) / 4
-    for k, (icon, name, value, note) in enumerate(tiles):
+    for k, (pic, name, value, note) in enumerate(tiles):
         x0 = 12 + tw * k
         cx = x0 + tw / 2
-        body.append(f'<rect x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="124" rx="10" fill="#151541" stroke="#31336e"/>')
-        body.append(ic.use(icon, cx - 26, 378, 52))
-        body.append(t(cx, 444, name, 9, '#a9abd0', extra=' letter-spacing="1"'))
-        body.append(t(cx, 466, value, 15 if len(value) < 14 else 11.5, '#ffffff', weight='bold'))
-        body.append(t(cx, 486, note, 9.5, '#7f82b0'))
+        body.append(f'<clipPath id="tile{k}"><rect x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="124" rx="10"/></clipPath>')
+        body.append(f'<rect x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="124" rx="10" fill="#151541"/>')
+        body.append(f'<image x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="62" preserveAspectRatio="xMidYMid slice" '
+                    f'clip-path="url(#tile{k})" href="data:image/jpeg;base64,{jpeg_b64(pic)}"/>')
+        body.append(f'<rect x="{x0 + 3:.1f}" y="374" width="{tw - 6:.1f}" height="124" rx="10" fill="none" stroke="#31336e"/>')
+        body.append(t(cx, 452, name, 9, '#a9abd0', extra=' letter-spacing="1"'))
+        body.append(t(cx, 472, value, 15 if len(value) < 14 else 11.5, '#ffffff', weight='bold'))
+        body.append(t(cx, 490, note, 9.5, '#7f82b0'))
     body.append(t(W / 2, H - 22, f'Calculated for the Diyar Al Muharraq area \u00b7 updated {local:%H:%M} AST \u00b7 reload for the latest', 10.5, '#a9abd0'))
-    body.append(t(W / 2, H - 8, 'Earth images: NASA Blue Marble & Black Marble (public domain) \u00b7 Icons: Meteocons (MIT)', 9.5, '#7f82b0'))
+    body.append(t(W / 2, H - 8, 'Earth: NASA Blue & Black Marble (public domain) \u00b7 Moon photo: Gregory H. Revera (CC BY-SA 3.0)', 9.5, '#7f82b0'))
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="Segoe UI, Arial, Helvetica, sans-serif">'
-           f'<defs>{ic.defs()}</defs>' + '\n'.join(body) + '</svg>\n')
+           + '\n'.join(body) + '</svg>\n')
     open(path, 'w').write(svg)
     print('wrote', path, len(svg), 'bytes', mname, illum, hm(rise), hm(sett))
 
