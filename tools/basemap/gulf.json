@@ -23,10 +23,11 @@
    "side": "right"
   },
   {
-   "name": "Hofuf",
+   "name": "Al Hofuf",
    "lon": 49.59,
    "lat": 25.38,
-   "side": "left"
+   "side": "left",
+   "highlight": "gold"
   },
   {
    "name": "Manama",

@@ -138,9 +138,12 @@ def gulf(path):
         right = c.get('side') == 'left' or x > W - 150 * k
         tw = d.textlength(label, font=fnt)
         bx0 = x - 7 * k - tw - 12 * k if right else x + 7 * k
-        d.rounded_rectangle([bx0, y - 11 * k, bx0 + tw + 12 * k, y + 11 * k], 8 * k, fill=(0, 0, 40, 200), outline=(255, 255, 255, 90))
-        d.text((bx0 + 6 * k, y), label, font=fnt, fill=(255, 255, 255, 255), anchor='lm')
-        d.ellipse([x - 3.5 * k, y - 3.5 * k, x + 3.5 * k, y + 3.5 * k], fill=(255, 255, 255, 255), outline=(0, 0, 40, 255))
+        gold = c.get('highlight') == 'gold'          # Basil's birthplace stands out
+        d.rounded_rectangle([bx0, y - 11 * k, bx0 + tw + 12 * k, y + 11 * k], 8 * k, fill=(0, 0, 40, 200),
+                            outline=(245, 197, 24, 255) if gold else (255, 255, 255, 90), width=round(2 * k) if gold else 1)
+        d.text((bx0 + 6 * k, y), label, font=fnt, fill=(255, 224, 138, 255) if gold else (255, 255, 255, 255), anchor='lm')
+        r = 5 * k if gold else 3.5 * k
+        d.ellipse([x - r, y - r, x + r, y + r], fill=(245, 197, 24, 255) if gold else (255, 255, 255, 255), outline=(0, 0, 40, 255))
     # legend
     lg_w = round(300 * k)
     lx, ly = W - lg_w - 12 * k, H - 30 * k
