@@ -1,4 +1,4 @@
-# Builds the site and refreshes the weather, space-weather, Gulf map and grey-line panels every hour.
+# Builds the site and refreshes the weather, space-weather, Gulf map and grey-line panels every hour (and about every 15 minutes via pushes from the PC).
 # The QSO data (qsos.js, stats.svg) is pushed from Basil's PC by sync.py.
 name: Publish site and weather
 

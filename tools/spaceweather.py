@@ -317,7 +317,7 @@ def render(d, now):
     if extra:
         out.append(text(W / 2, 484, '  ·  '.join(extra), 10.5, '#a9abd0'))
     local = now.astimezone(TZ)
-    out.append(text(W / 2, H - 30, f'As of {now:%H:%M} UTC  ·  {local:%H:%M} Bahrain (UTC+3), {local:%a %d %b %Y}  ·  updated hourly',
+    out.append(text(W / 2, H - 30, f'As of {now:%H:%M} UTC  ·  {local:%H:%M} Bahrain (UTC+3), {local:%a %d %b %Y}  ·  refreshed every 15 min',
                     10.5, '#a9abd0'))
     out.append(text(W / 2, H - 13, 'Solar data & band conditions: N0NBH, hamqsl.com · NOAA SWPC · Sun image: SDO/NASA',
                     9.5, MUTED))

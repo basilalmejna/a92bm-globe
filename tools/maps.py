@@ -153,7 +153,7 @@ def gulf(path):
         d.text((tx, ly + 10 * k), f'{tv}°', font=font(round(9 * k)), fill=TEXT, anchor='ma')
     d.text((lx, ly - 15 * k), '°C  ·  arrows: wind direction, longer = stronger', font=font(round(9 * k)), fill=TEXT)
     out = frame(img, 'GULF · TEMPERATURE & WIND',
-                f'Model analysis valid {valid:%d %b %H:%M} AST  ·  1° grid, interpolated  ·  updated hourly',
+                f'Model analysis valid {valid:%d %b %H:%M} AST  ·  1° grid, interpolated  ·  refreshed every 15 min',
                 'Data: Open-Meteo.com (CC BY 4.0)  ·  Coastlines & borders: Natural Earth (public domain)', k)
     out.save(path, optimize=True)
     print('wrote', path, out.size, f'T {T.min():.0f}-{T.max():.0f} C')
