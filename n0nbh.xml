@@ -2,21 +2,21 @@
 <solar>
 	<solardata>
 		<source url="http://www.hamqsl.com/solar.html">N0NBH</source>
-		<updated> 27 Oct 2026 0625 GMT</updated>
+		<updated> 27 Oct 2026 0640 GMT</updated>
 		<solarflux>91</solarflux>
 		<aindex> 4</aindex>
-		<kindex> 1</kindex>
+		<kindex> 2</kindex>
 		<kindexnt>No Report</kindexnt>
 		<xray>B2.7</xray>
 		<sunspots>27</sunspots>
 		<heliumline>103.0</heliumline>
-		<protonflux>24700</protonflux>
-		<electonflux>2400</electonflux>
-		<aurora> 2</aurora>
+		<protonflux>NoRpt</protonflux>
+		<electonflux>NoRpt</electonflux>
+		<aurora> 1</aurora>
 		<normalization>1.99</normalization>
-		<latdegree>66.5</latdegree>
-		<solarwind>399.0</solarwind>
-		<magneticfield>  5.7</magneticfield>
+		<latdegree>67.5</latdegree>
+		<solarwind>400.1</solarwind>
+		<magneticfield>  6.5</magneticfield>
 		<calculatedconditions>
 			<band name="80m-40m" time="day">Fair</band>
 			<band name="30m-20m" time="day">Good</band>
@@ -34,8 +34,8 @@
 			<phenomenon name="E-Skip" location="europe_6m">Band Closed</phenomenon>
 			<phenomenon name="E-Skip" location="europe_4m">Band Closed</phenomenon>
 		</calculatedvhfconditions>
-		<geomagfield>VR QUIET</geomagfield>
-		<signalnoise>S0-S1</signalnoise>
+		<geomagfield>QUIET</geomagfield>
+		<signalnoise>S1-S2</signalnoise>
 		<fof2></fof2>
 		<muffactor></muffactor>
 		<muf>NoRpt</muf>
