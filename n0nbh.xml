@@ -2,29 +2,29 @@
 <solar>
 	<solardata>
 		<source url="http://www.hamqsl.com/solar.html">N0NBH</source>
-		<updated> 31 Oct 2026 2120 GMT</updated>
-		<solarflux>90</solarflux>
-		<aindex> 10</aindex>
-		<kindex> 3</kindex>
+		<updated> 31 Oct 2026 2135 GMT</updated>
+		<solarflux>92</solarflux>
+		<aindex> 26</aindex>
+		<kindex> 6</kindex>
 		<kindexnt>No Report</kindexnt>
 		<xray>B4.0</xray>
 		<sunspots>24</sunspots>
-		<heliumline>104.8</heliumline>
-		<protonflux>25</protonflux>
-		<electonflux>2760</electonflux>
-		<aurora> 6</aurora>
+		<heliumline>104.0</heliumline>
+		<protonflux>23</protonflux>
+		<electonflux>2540</electonflux>
+		<aurora> 3</aurora>
 		<normalization>1.99</normalization>
-		<latdegree>60.7</latdegree>
-		<solarwind>545.2</solarwind>
-		<magneticfield>  4.3</magneticfield>
+		<latdegree>65.6</latdegree>
+		<solarwind>534.7</solarwind>
+		<magneticfield>  0.2</magneticfield>
 		<calculatedconditions>
 			<band name="80m-40m" time="day">Poor</band>
-			<band name="30m-20m" time="day">Good</band>
-			<band name="17m-15m" time="day">Fair</band>
+			<band name="30m-20m" time="day">Poor</band>
+			<band name="17m-15m" time="day">Poor</band>
 			<band name="12m-10m" time="day">Poor</band>
-			<band name="80m-40m" time="night">Fair</band>
-			<band name="30m-20m" time="night">Good</band>
-			<band name="17m-15m" time="night">Fair</band>
+			<band name="80m-40m" time="night">Poor</band>
+			<band name="30m-20m" time="night">Poor</band>
+			<band name="17m-15m" time="night">Poor</band>
 			<band name="12m-10m" time="night">Poor</band>
 		</calculatedconditions>
 		<calculatedvhfconditions>
@@ -34,8 +34,8 @@
 			<phenomenon name="E-Skip" location="europe_6m">Band Closed</phenomenon>
 			<phenomenon name="E-Skip" location="europe_4m">Band Closed</phenomenon>
 		</calculatedvhfconditions>
-		<geomagfield>UNSETTLD</geomagfield>
-		<signalnoise>S2-S3</signalnoise>
+		<geomagfield>MAJ STRM</geomagfield>
+		<signalnoise>S6-S9</signalnoise>
 		<fof2></fof2>
 		<muffactor></muffactor>
 		<muf>NoRpt</muf>
