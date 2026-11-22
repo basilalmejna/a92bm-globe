@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17f9da"/><stop offset=".5" stop-color="#7b5cff"/><stop offset="1" stop-color="#c0106f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e09a2c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Held -->
+  <text x="20" y="30" fill="#17f9da" font-size="14" letter-spacing="4">HELD · QRZ AWARDS</text>
+  <g font-size="15" fill="#e9eaf5">
+    <g transform="translate(20,48)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">World Radio Friendship</text></g>
+    <g transform="translate(345,48)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">30 Years of QRZ</text></g>
+    <g transform="translate(670,48)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">World Continents</text></g>
+    <g transform="translate(20,104)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">Grid Squared</text></g>
+    <g transform="translate(345,104)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">Master of Radio Comm. · Europe</text></g>
+    <g transform="translate(670,104)"><rect width="310" height="46" rx="10" fill="#000030" stroke="#31336e"/><circle cx="24" cy="23" r="11" fill="none" stroke="url(#gold)" stroke-width="3"/><text x="46" y="29">Master of Radio Comm. · Asia</text></g>
+  </g>
+
+  <!-- Qualified, pending -->
+  <text x="20" y="194" fill="#17f9da" font-size="14" letter-spacing="4">QUALIFIED · APPLICATION PENDING</text>
+  <g fill="#e9eaf5" text-anchor="middle">
+    <g transform="translate(20,210)">
+      <rect width="310" height="170" rx="12" fill="#000030" stroke="#31336e"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="#31336e" stroke-width="8"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-dasharray="276.5 276.5" transform="rotate(-90 155 68)"/>
+      <text x="155" y="76" font-size="26" font-weight="700">490</text>
+      <text x="155" y="96" font-size="11" fill="#9aa0d0">of 400 prefixes</text>
+      <text x="155" y="136" font-size="17" font-weight="600">CQ WPX Mixed</text>
+      <text x="155" y="158" font-size="12" fill="#9aa0d0">CQ · LoTW confirmed</text>
+    </g>
+    <g transform="translate(345,210)">
+      <rect width="310" height="170" rx="12" fill="#000030" stroke="#31336e"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="#31336e" stroke-width="8"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-dasharray="276.5 276.5" transform="rotate(-90 155 68)"/>
+      <text x="155" y="76" font-size="26" font-weight="700">487</text>
+      <text x="155" y="96" font-size="11" fill="#9aa0d0">of 300 prefixes</text>
+      <text x="155" y="136" font-size="17" font-weight="600">CQ WPX Digital</text>
+      <text x="155" y="158" font-size="12" fill="#9aa0d0">CQ · LoTW confirmed</text>
+    </g>
+    <g transform="translate(670,210)">
+      <rect width="310" height="170" rx="12" fill="#000030" stroke="#31336e"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="#31336e" stroke-width="8"/>
+      <circle cx="155" cy="68" r="44" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-dasharray="276.5 276.5" transform="rotate(-90 155 68)"/>
+      <text x="155" y="76" font-size="26" font-weight="700">6</text>
+      <text x="155" y="96" font-size="11" fill="#9aa0d0">of 6 continents</text>
+      <text x="155" y="136" font-size="17" font-weight="600">Worked All Continents</text>
+      <text x="155" y="158" font-size="12" fill="#9aa0d0">IARU · LoTW confirmed</text>
+    </g>
+  </g>
+</svg>
